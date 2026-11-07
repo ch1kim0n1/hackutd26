@@ -95,5 +95,50 @@ const roverEvent = {
   check('canonical not seq-assigned', r.ok && !r.value.seqAssigned && r.value.seq === 7n);
 }
 
+// --- device HMAC signature verification (sensors/pucks) ---
+const { createHmac } = await import('node:crypto');
+const SECRET = 'puck-shared-secret';
+function sign(p: Record<string, unknown>, secret: string): string {
+  const body = {
+    schema_version: p.schema_version, event_id: p.event_id,
+    device_id: p.device_id, seq: p.seq, observed_at: p.observed_at,
+    kind: p.kind, zone_id: p.zone_id, data: p.data,
+  };
+  const canon = (v: unknown): string => {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return `[${v.map(canon).join(',')}]`;
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canon(o[k])}`).join(',')}}`;
+  };
+  return createHmac('sha256', secret).update(canon(body)).digest('hex');
+}
+const KEYS = { 'puck-a-01': SECRET };
+
+{
+  const signed = { ...canonical, signature: sign(canonical, SECRET) };
+  const r = normalizeTelemetry(enc(signed), 'puck-a-01', KEYS);
+  check('valid signature accepted', r.ok);
+}
+{
+  const signed = { ...canonical, signature: sign(canonical, 'wrong-secret') };
+  const r = normalizeTelemetry(enc(signed), 'puck-a-01', KEYS);
+  check('wrong secret rejected', !r.ok);
+}
+{
+  const signed = { ...canonical, signature: sign(canonical, SECRET), data: { tampered: true } };
+  const r = normalizeTelemetry(enc(signed), 'puck-a-01', KEYS);
+  check('tampered data rejected', !r.ok);
+}
+{
+  // no signature on a keyed device -> reject
+  const r = normalizeTelemetry(enc(canonical), 'puck-a-01', KEYS);
+  check('unsigned on keyed device rejected', !r.ok);
+}
+{
+  // unkeyed device unaffected
+  const r = normalizeTelemetry(enc({ ...canonical, device_id: 'puck-b-01' }), 'puck-b-01', KEYS);
+  check('unkeyed device still accepted', r.ok);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

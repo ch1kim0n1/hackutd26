@@ -45,6 +45,8 @@ export {
 // Reducers — missions
 export {
   assignMission,
+  proposeMission,
+  approveMission,
   markMissionDispatched,
   recordMissionResult,
   cancelMission,

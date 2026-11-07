@@ -108,3 +108,12 @@ asserts 15 behaviors: health, ingest + `gateway_validated` trust tier,
 event-id dedupe, forged/unknown-kind/oversized/bad-version rejection,
 MQTT mission downlink contract + dispatched state, outbox
 claim→execute→outcome, and persisted restart state.
+
+### Device payload signatures
+
+`GATEWAY_DEVICE_HMAC_KEYS` (JSON `{"<device_id>": "<secret>"}`) enables
+HMAC-SHA256 verification of canonical envelopes — same signing as
+`sensors/pucks` `Observation.canonical()`. A keyed device whose payload is
+unsigned or invalidly signed is rejected; unkeyed devices unaffected.
+Verified cross-language: real Python puck signatures validate at the
+gateway (17/17 validate tests).

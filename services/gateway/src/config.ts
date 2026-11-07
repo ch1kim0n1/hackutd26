@@ -13,6 +13,9 @@ export interface GatewayConfig {
   /** Optional lab executor webhook for approved actions (issue #17 outbox). */
   executorWebhookUrl?: string;
   executorWebhookToken?: string;
+  /** device_id -> shared HMAC secret for signature'd observation envelopes
+   *  (sensors/pucks). Configured devices MUST present a valid signature. */
+  deviceHmacKeys: Record<string, string>;
   healthPort: number;
   stateFile: string;
 }
@@ -34,6 +37,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     topicPrefix: env.MQTT_TOPIC_PREFIX ?? 'sentinel/v1',
     executorWebhookUrl: env.EXECUTOR_WEBHOOK_URL,
     executorWebhookToken: env.EXECUTOR_WEBHOOK_TOKEN,
+    deviceHmacKeys: env.GATEWAY_DEVICE_HMAC_KEYS
+      ? (JSON.parse(env.GATEWAY_DEVICE_HMAC_KEYS) as Record<string, string>)
+      : {},
     healthPort: Number(env.GATEWAY_HEALTH_PORT ?? 8081),
     stateFile: env.GATEWAY_STATE_FILE ?? './gateway-state.json',
   };

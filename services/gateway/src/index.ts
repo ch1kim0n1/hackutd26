@@ -107,7 +107,7 @@ async function handleTelemetry(topic: string, payload: Buffer): Promise<void> {
     stats.rejected++;
     return; // not a telemetry topic shape we own
   }
-  const result = normalizeTelemetry(payload, deviceId);
+  const result = normalizeTelemetry(payload, deviceId, config.deviceHmacKeys);
   if (!result.ok) {
     stats.rejected++;
     stats.lastError = `reject ${topic}: ${result.reason}`;

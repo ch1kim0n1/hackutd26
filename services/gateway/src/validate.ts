@@ -28,6 +28,65 @@ export const MAX_PACKET_BYTES = 16 * 1024;
 export const MAX_DATA_JSON_BYTES = 8 * 1024;
 export const SCHEMA_VERSION = 1;
 
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+// ---------------------------------------------------------------------------
+// Device payload signatures (sensors/pucks Observation.canonical()):
+// HMAC-SHA256 over the 8 envelope fields as sorted-keys compact JSON —
+// byte-identical to python json.dumps(sort_keys=True, separators=(",", ":"),
+// ensure_ascii=True) for ASCII input. Non-ASCII strings diverge between the
+// two serializers, so any non-ASCII string in the signed body fails verify
+// rather than guessing.
+// ---------------------------------------------------------------------------
+
+const SIGNED_FIELDS = [
+  'schema_version',
+  'event_id',
+  'device_id',
+  'seq',
+  'observed_at',
+  'kind',
+  'zone_id',
+  'data',
+] as const;
+
+export function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  const obj = value as Record<string, unknown>;
+  return `{${Object.keys(obj)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`)
+    .join(',')}}`;
+}
+
+function isAsciiDeep(v: unknown): boolean {
+  if (typeof v === 'string') {
+    for (let i = 0; i < v.length; i++) if (v.charCodeAt(i) > 0x7f) return false;
+    return true;
+  }
+  if (Array.isArray(v)) return v.every(isAsciiDeep);
+  if (v !== null && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    return Object.keys(o).every((k) => {
+      for (let i = 0; i < k.length; i++) if (k.charCodeAt(i) > 0x7f) return false;
+      return isAsciiDeep(o[k]);
+    });
+  }
+  return true;
+}
+
+/** Verify a canonical-envelope `signature` against the device HMAC secret. */
+export function verifyDeviceSignature(p: Record<string, unknown>, secret: string): boolean {
+  const sig = typeof p.signature === 'string' ? p.signature : '';
+  if (!/^[0-9a-f]{64}$/.test(sig)) return false;
+  const body: Record<string, unknown> = {};
+  for (const f of SIGNED_FIELDS) body[f] = p[f];
+  if (!isAsciiDeep(body)) return false;
+  const expected = createHmac('sha256', secret).update(canonicalJson(body)).digest('hex');
+  return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+}
+
 export interface TelemetryEnvelope {
   schemaVersion: number;
   eventId: string;
@@ -153,10 +212,28 @@ export interface NormalizedEnvelope extends Omit<TelemetryEnvelope, 'seq'> {
 
 export function normalizeTelemetry(
   raw: Buffer | string,
-  topicDeviceIdValue: string
+  topicDeviceIdValue: string,
+  hmacKeys: Record<string, string> = {}
 ): { ok: true; value: NormalizedEnvelope } | { ok: false; reason: string } {
   const strict = validateEnvelope(raw, topicDeviceIdValue);
-  if (strict.ok) return { ok: true, value: { ...strict.value, seqAssigned: false } };
+  if (strict.ok) {
+    // Devices with a provisioned HMAC key MUST present a valid signature
+    // (payload integrity from firmware to gateway — broker ACLs only
+    // authenticate the channel, not the bytes).
+    const secret = hmacKeys[topicDeviceIdValue];
+    if (secret) {
+      let parsed: Record<string, unknown> | null = null;
+      try {
+        parsed = JSON.parse(typeof raw === 'string' ? raw : raw.toString('utf8')) as Record<string, unknown>;
+      } catch {
+        return { ok: false, reason: 'signature check failed: unparseable body' };
+      }
+      if (!verifyDeviceSignature(parsed, secret)) {
+        return { ok: false, reason: 'device signature invalid or missing' };
+      }
+    }
+    return { ok: true, value: { ...strict.value, seqAssigned: false } };
+  }
 
   const text = typeof raw === 'string' ? raw : raw.toString('utf8');
   if (Buffer.byteLength(text, 'utf8') > MAX_PACKET_BYTES) {

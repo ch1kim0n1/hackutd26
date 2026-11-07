@@ -49,6 +49,7 @@ async function main() {
   const { conn: responder, identity: responderId } = await connect('responder');
   const { conn: observer, identity: observerId } = await connect('observer');
   const { conn: executor, identity: executorId } = await connect('executor');
+  const { conn: agent, identity: agentId } = await connect('agent');
   console.log('connected:', [adminId, deviceId, commanderId, responderId].map((i) => i.toHexString().slice(0, 8)));
 
   // ---- bootstrap + roles ----
@@ -59,6 +60,7 @@ async function main() {
   await admin.reducers.upsertUserRole({ userId: responderId, role: 'responder', incidentScope: [], note: 'ir' });
   await admin.reducers.upsertUserRole({ userId: observerId, role: 'observer', incidentScope: [], note: 'obs' });
   await admin.reducers.upsertUserRole({ userId: executorId, role: 'executor', incidentScope: [], note: 'exec' });
+  await admin.reducers.upsertUserRole({ userId: agentId, role: 'agent', incidentScope: [], note: 'nemotron' });
   check('roles seeded', true);
 
   // ---- registry ----
@@ -256,6 +258,39 @@ async function main() {
   await ms('evt-ms-4', 24n, 'failed', 'puck-a-01');
   await sleep(300);
   check('foreign-device status ignored', (await missionTag()) === 'completed');
+
+  // ---- agent propose -> commander approve (GLUE-03 SoD) ----
+  await commander.reducers.grantIncidentAccess({ incidentId: incId, userId: agentId, level: 'responder' });
+  await sleep(400);
+  await agent.reducers.proposeMission({
+    incidentId: incId, deviceId: 'rover-01', type: 'capture_photo',
+    waypoint: 'tag-rack-01', zoneId: 'rack-01',
+    expiresAtMicros: nowMicros + 300_000_000n, maxSpeedMps: 0.2,
+    justification: 'cabinet event needs photo evidence', traceId: 'p-1',
+  });
+  await sleep(500);
+  const pms = [...(await commander.db.missionFeed.iter())];
+  const proposed = pms.find((m: any) => String(m.state.tag).toLowerCase() === 'proposed') as any;
+  check('agent mission lands in proposed', !!proposed);
+  check('proposed not in gateway downlink',
+    [...(await (gateway as any).db.pendingMissions.iter())].every((m: any) => m.id !== proposed?.id));
+  // SoD: the proposing agent cannot approve; observers cannot approve.
+  await expectReject('agent cannot approve own proposal',
+    agent.reducers.approveMission({ missionId: proposed.id }));
+  await expectReject('observer cannot approve mission',
+    observer.reducers.approveMission({ missionId: proposed.id }));
+  await commander.reducers.approveMission({ missionId: proposed.id });
+  await sleep(400);
+  check('commander approves -> approved + visible to gateway',
+    [...(await (gateway as any).db.pendingMissions.iter())].some((m: any) => m.id === proposed.id));
+  // non-agent cannot propose; puck targets rejected
+  await expectReject('commander cannot use proposeMission',
+    commander.reducers.proposeMission({
+      incidentId: incId, deviceId: 'rover-01', type: 'patrol',
+      waypoint: 'tag-rack-01', zoneId: 'rack-01',
+      expiresAtMicros: nowMicros + 300_000_000n, maxSpeedMps: 0.2,
+      justification: 'x', traceId: 'p-2',
+    }));
 
   // ---- scope ----
   await responder.reducers.updateScope({
