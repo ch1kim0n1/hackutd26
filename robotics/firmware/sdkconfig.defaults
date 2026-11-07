@@ -1,0 +1,4 @@
+CONFIG_IDF_TARGET="esp32"
+# USB-serial console off: UART0 is the Pi command link, not a debug console.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=n
+CONFIG_ESP_CONSOLE_UART=y
