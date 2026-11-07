@@ -6,6 +6,13 @@ A mobile security rover and wireless/physical sensor network observe an **owned 
 
 > **Current state: design documentation only.** This repo is the main engineering source of truth; implementation, security compliance and measured performance are not yet verified.
 
+
+## Engineering execution tracker
+
+- [Issue execution board: epics → implementation → FINALIZE → GLUE → deployment](docs/12-ISSUE-EXECUTION-BOARD.md)
+- [GitHub Issues](https://github.com/ch1kim0n1/hackutd26/issues) — assigned work and acceptance evidence
+- [Final deployment/release gate #55](https://github.com/ch1kim0n1/hackutd26/issues/55)
+
 ## Read first
 
 1. [Project charter / ownership / definition of done](docs/00-PROJECT-CHARTER.md)
