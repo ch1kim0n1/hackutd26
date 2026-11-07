@@ -120,26 +120,37 @@ rover event shape into the canonical observation envelope
 `event_id` from mission/command/event identity) before `ingestObservation`,
 so replay protection and dedupe still apply.
 
-### Known gap — signed mission downlink
+### Mission downlink — WORKING via mission-shim
 
-The gateway publishes approved mission commands to
-`sentinel/v1/<device>/command`, but `robotics/rover` requires an
-HMAC-SHA256 `signature` over the mission contract (PR #11). The module's
-`commandJson` does not carry one, and the signing secret lives on the rover.
-Until a mission-broker shim (subscribe → sign/verify → file/serial handoff)
-exists, drive rover missions via signed mission files
-(`run-mission <file>`) rather than the MQTT command topic.
+The module's `commandJson` is unsigned; the rover requires an
+HMAC-SHA256 `signature` (PR #11) over its own contract. The bridge is
+`services/mission-shim`: it subscribes each device's command topic with
+that device's broker credentials, maps module types to rover types
+(`patrol`→`patrol_route` via route map, `hold`→`stop`, …), signs with the
+shared `ROVER_MISSION_SECRET`, and drops `<inbox>/<device>/<mission>.json`.
+The rover consumes it via:
 
-### Known gap — executor composition
+```bash
+ROVER_MISSION_SECRET=<shared> PYTHONPATH=src \
+  python3 -m rover_mission watch-missions <inbox>/rover-01
+```
 
-`apps/containment/executor` (PR #34) is a Python library consuming an
-in-process `Outbox` with independent verification. The deployed path today
-is gateway outbox worker → `POST EXECUTOR_WEBHOOK_URL` →
-`deploy/lab-executor/server.mjs`, which only *records* approved payloads
-(idempotent by fingerprint) — it does not run the Python executor's
-verify-before-VERIFIED flow. Wiring the library behind an HTTP service (or
-porting the outbox worker to Python) is follow-up work; treat lab-executor
-acknowledgements as "delivered to lab", not verified containment.
+(`run-mission FILE` still works for single files.) See
+`services/mission-shim/README.md` for env config and the type map.
+Verified end-to-end: shim-signed `inspect_zone` mission → rover
+navigated to `wp-rack-a` → evidence captured → `completed`.
+
+### Executor service — real verification path
+
+`apps/containment/executor` now ships an HTTP bridge
+(`python -m containment_executor.service`, env `EXECUTOR_PORT`,
+`EXECUTOR_TOKEN`, `EXECUTOR_ACTION_TTL_S`): POST `/execute` accepts the
+gateway's outbox `payloadJson`, runs the approval-bound executor with
+independent verification, and returns 200 only on `VERIFIED` (502
+otherwise → gateway records `failed`). POST `/revert` drives the #35
+recovery path. Point `EXECUTOR_WEBHOOK_URL` at it instead of the
+record-only `deploy/lab-executor` stub for verified containment; the
+stub remains the zero-dependency compose default.
 
 ## Tests / evidence
 

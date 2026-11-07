@@ -101,37 +101,97 @@ def cmd_simulate_patrols(args) -> int:
     return 0
 
 
-def cmd_run_mission(args) -> int:
+def _build_service(args, evidence_dir=None):
     routes = RouteMap(_default_routes_path())
     link = SimulatedLink(tick_s=0.1)
     link.connect()
     secret = __import__("os").environ.get("ROVER_MISSION_SECRET", "").encode()
     if not secret:
         print("ROVER_MISSION_SECRET not set", file=sys.stderr)
-        return 2
+        return None, None, None
     clock = _SimClock(0.1)
     svc = RoverService(
         routes, link,
         publisher=ConsolePublisher(sys.stdout),
         config=ServiceConfig(device_id=routes.device_id, secret=secret,
-                             evidence_dir=args.evidence_dir),
+                             evidence_dir=evidence_dir or args.evidence_dir),
         clock=clock,
     )
+    return svc, link, clock
+
+
+def _drive(svc, link, clock, max_steps):
+    steps = 0
+    while (svc.active is not None or svc.queue_depth > 0) and steps < max_steps:
+        clock.advance()
+        svc.tick()
+        link.pump()
+        steps += 1
+    return steps
+
+
+def cmd_run_mission(args) -> int:
+    svc, link, clock = _build_service(args)
+    if svc is None:
+        return 2
     mission = json.loads(Path(args.file).read_text())
     ok, reason, rec = svc.submit(mission)
     print(json.dumps({"accepted": ok, "reason": reason}))
     if not ok:
         return 3
-    steps = 0
-    while (svc.active is not None or svc.queue_depth > 0) and steps < args.max_steps:
-        clock.advance()
-        svc.tick()
-        link.pump()
-        steps += 1
+    steps = _drive(svc, link, clock, args.max_steps)
     final = svc.missions[-1]
     print(json.dumps({"final_state": final.state.value, "reason": final.reason,
                       "ticks": steps}))
     return 0 if final.state == MissionState.COMPLETED else 4
+
+
+def cmd_watch_missions(args) -> int:
+    """Poll a directory (e.g. mission-shim inbox) for signed mission files.
+
+    Each *.json is validated+executed once; a sibling <name>.done marker is
+    written afterwards so restarts never re-run a mission. Files appearing
+    mid-write are skipped until they parse (shim writes atomically, but be
+    safe)."""
+    inbox = Path(args.dir)
+    if not inbox.is_dir():
+        print(f"watch dir not found: {inbox}", file=sys.stderr)
+        return 2
+    svc, link, clock = _build_service(args)
+    if svc is None:
+        return 2
+    processed = set()
+    ran = 0
+    while args.max_missions <= 0 or ran < args.max_missions:
+        files = sorted(inbox.glob("*.json"))
+        pending = [f for f in files
+                   if f not in processed
+                   and not f.with_suffix(f.suffix + ".done").exists()]
+        if not pending:
+            time.sleep(args.poll_s)
+            continue
+        for f in pending:
+            processed.add(f)
+            try:
+                mission = json.loads(f.read_text())
+            except (ValueError, OSError) as e:
+                print(json.dumps({"file": f.name, "error": f"unreadable: {e}"}))
+                f.with_suffix(f.suffix + ".done").write_text("error")
+                continue
+            ok, reason, _rec = svc.submit(mission)
+            if not ok:
+                print(json.dumps({"file": f.name, "accepted": False,
+                                  "reason": reason}))
+                f.with_suffix(f.suffix + ".done").write_text(reason)
+                continue
+            steps = _drive(svc, link, clock, args.max_steps)
+            final = svc.missions[-1]
+            print(json.dumps({"file": f.name, "mission_id": final.mission_id,
+                              "final_state": final.state.value,
+                              "reason": final.reason, "ticks": steps}))
+            f.with_suffix(f.suffix + ".done").write_text(final.state.value)
+            ran += 1
+    return 0
 
 
 def cmd_validate(args) -> int:
@@ -166,6 +226,16 @@ def main(argv=None) -> int:
     rp.add_argument("--evidence-dir", default="var/evidence")
     rp.add_argument("--max-steps", type=int, default=20000)
     rp.set_defaults(fn=cmd_run_mission)
+
+    wp = sub.add_parser("watch-missions",
+                        help="poll a directory for signed mission files")
+    wp.add_argument("dir", help="inbox dir (e.g. mission-shim output)")
+    wp.add_argument("--evidence-dir", default="var/evidence")
+    wp.add_argument("--max-steps", type=int, default=20000)
+    wp.add_argument("--poll-s", type=float, default=1.0)
+    wp.add_argument("--max-missions", type=int, default=0,
+                    help="0 = run forever")
+    wp.set_defaults(fn=cmd_watch_missions)
 
     vp = sub.add_parser("validate", help="validate a mission file")
     vp.add_argument("file")

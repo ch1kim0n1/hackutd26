@@ -56,3 +56,22 @@ no-unapproved-execution, revert+verify, revert-failure.
   service's secret store, never in repo or agent process.
 - Outbox is in-memory; production = SpACEDB outbox worker pattern
   (docs/04: external commands never as DB transaction side-effects).
+
+## HTTP bridge (`containment_executor.service`)
+
+`python -m containment_executor.service` exposes the executor over HTTP
+for the gateway outbox worker (`EXECUTOR_WEBHOOK_URL`):
+
+- `POST /execute` — body = module `payloadJson`; returns **200 only on
+  `VERIFIED`** (independent probe passed), 502 on FAILED/other, 400 on
+  malformed. Idempotent: redelivery of a verified action returns 200.
+- `POST /revert` — `{"action_id": ...}` drives the #35 recovery path.
+- `GET /healthz` — pending/record counts.
+- Bearer auth via `EXECUTOR_TOKEN` (unset = open, lab only).
+
+Env: `EXECUTOR_PORT` (8082), `EXECUTOR_TOKEN`, `EXECUTOR_ACTION_TTL_S`
+(300), `EXECUTOR_FAIL_APPLY=1` / `EXECUTOR_LIE_ABOUT_SUCCESS=1` test
+hooks for the honesty paths.
+
+17 tests total (10 lib + 7 service): mapping, honest status codes,
+idempotent redelivery, revert, live HTTP round-trip with auth.
