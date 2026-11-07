@@ -3,3 +3,4 @@ env/*.env
 mosquitto/passwordfile
 seeds/bindings/
 seeds/node_modules/
+evidence/
