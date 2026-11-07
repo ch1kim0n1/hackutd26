@@ -1,0 +1,18 @@
+{
+  "known_bssids": {
+    "SENTINEL-CORP": ["02:AA:BB:CC:DD:01"],
+    "SENTINEL-GUEST": ["02:AA:BB:CC:DD:02"]
+  },
+  "enrolled_beacons": [
+    "AA:BB:CC:DD:EE:01",
+    "11111111-2222-3333-4444-555555555555"
+  ],
+  "maintenance_windows": [
+    {
+      "zone_id": "cabinet-01",
+      "start": "2026-11-08T18:00:00Z",
+      "end": "2026-11-08T20:00:00Z",
+      "authorized_by": "operator-jane"
+    }
+  ]
+}
