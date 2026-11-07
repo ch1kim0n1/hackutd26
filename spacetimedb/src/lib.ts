@@ -3,6 +3,7 @@ import type { ReadonlyDbView, ReducerCtx, InferSchema } from 'spacetimedb/server
 import type { Identity } from 'spacetimedb';
 import type spacetimedb from './schema';
 import type {
+  AlertStateValue,
   ChatKindValue,
   ConfidenceValue,
   IncidentAccessLevelValue,
@@ -399,3 +400,138 @@ export function visibleIncidentIds(ctx: ReadCtx): string[] {
   return visibleIncidents(ctx).map((i) => i.id);
 }
 
+
+// ---------------------------------------------------------------------------
+// Deterministic observation -> alert -> incident correlation (issue #18)
+// ---------------------------------------------------------------------------
+
+const CORRELATION_BUCKET_MICROS = 300_000_000n; // 5-minute dedupe window
+
+interface CorrelationRule {
+  ruleId: string;
+  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+  incident: boolean;
+  title: string;
+}
+
+// Deterministic rules: same observation kind always maps to the same
+// alert/incident template. Wi-Fi-only anomalies stay alert-tier — docs/08
+// forbids claiming exposure from RF anomalies alone.
+const CORRELATION_RULES: Record<string, CorrelationRule> = {
+  contact_open: {
+    ruleId: 'perimeter.contact_open',
+    severity: 'high',
+    incident: true,
+    title: 'Physical perimeter contact opened',
+  },
+  door_state: {
+    ruleId: 'door.state_change',
+    severity: 'medium',
+    incident: false,
+    title: 'Door state change',
+  },
+  motion: {
+    ruleId: 'physical.motion',
+    severity: 'low',
+    incident: false,
+    title: 'Motion detected',
+  },
+  wifi_ap_seen: {
+    ruleId: 'rf.ap_seen',
+    severity: 'low',
+    incident: false,
+    title: 'Wi-Fi AP observed',
+  },
+};
+
+/** First non-revoked commander in the directory (deterministic: createdAt). */
+function pickOncallCommander(ctx: Ctx): Ctx['sender'] | null {
+  for (const u of ctx.db.usersAndRoles.createdAt.filter(new Range<Timestamp>())) {
+    if (!u.revoked && u.role.tag === 'commander') return u.userId;
+  }
+  return null;
+}
+
+/**
+ * Runs inside the ingest transaction: inserts an alert for every matched
+ * observation kind, and for incident-tier rules creates exactly one incident
+ * per (rule, device, zone, 5-minute bucket) via correlation_dedupe. Replays
+ * of the same event or a second event in the same bucket are no-ops.
+ */
+export function correlateObservation(
+  ctx: Ctx,
+  obs: {
+    id: bigint;
+    eventId: string;
+    deviceId: string;
+    kind: string;
+    observedAt: Timestamp;
+    zoneId: string;
+    traceId: string;
+  }
+): void {
+  const rule = CORRELATION_RULES[obs.kind];
+  if (rule === undefined) return;
+
+  const bucket = obs.observedAt.microsSinceUnixEpoch / CORRELATION_BUCKET_MICROS;
+  const key = `${rule.ruleId}:${obs.deviceId}:${obs.zoneId}:${bucket}`;
+  if (ctx.db.correlationDedupe.key.find(key) !== null) return;
+
+  const alert = ctx.db.alerts.insert({
+    id: 0n,
+    ruleId: rule.ruleId,
+    observationIds: [obs.id],
+    severity: tagValue<SeverityValue>(rule.severity),
+    state: tagValue<AlertStateValue>('open'),
+    incidentId: '',
+    title: `${rule.title} — ${obs.deviceId}@${obs.zoneId}`,
+    createdAt: ctx.timestamp,
+  });
+
+  let incidentId = '';
+  if (rule.incident) {
+    const commanderId = pickOncallCommander(ctx);
+    if (commanderId !== null) {
+      const inc = insertIncident(ctx, {
+        title: `${rule.title} — ${obs.zoneId}`,
+        description: `Auto-correlated from ${obs.kind} observation ${obs.eventId} (device ${obs.deviceId}, zone ${obs.zoneId}). Confidence: suspected — awaiting human triage.`,
+        severity: rule.severity,
+        confidence: 'suspected',
+        status: 'new',
+        commanderId,
+        traceId: obs.traceId,
+        operation: 'incident.auto_correlate',
+      });
+      incidentId = inc.id;
+      ctx.db.alerts.id.update({ ...alert, incidentId });
+      postSystemChat(
+        ctx,
+        incidentId,
+        `Auto-incident created from observation ${obs.eventId} (${obs.kind} on ${obs.deviceId}).`,
+        obs.eventId
+      );
+    }
+  }
+
+  ctx.db.correlationDedupe.insert({
+    key,
+    alertId: alert.id,
+    incidentId,
+    createdAt: ctx.timestamp,
+  });
+
+  audit(ctx, {
+    actor: ctx.sender,
+    operation: 'correlate.observation',
+    entity: `alert:${alert.id}`,
+    incidentId,
+    after: {
+      ruleId: rule.ruleId,
+      kind: obs.kind,
+      deviceId: obs.deviceId,
+      zoneId: obs.zoneId,
+      bucket: bucket.toString(),
+    },
+    traceId: obs.traceId,
+  });
+}

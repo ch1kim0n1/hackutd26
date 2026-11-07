@@ -103,6 +103,7 @@ async function main() {
   commander.subscriptionBuilder().subscribe((tb) => tb.actionFeed.build());
   commander.subscriptionBuilder().subscribe((tb) => tb.missionFeed.build());
   commander.subscriptionBuilder().subscribe((tb) => tb.scopeFeed.build());
+  commander.subscriptionBuilder().subscribe((tb) => tb.opsAlertFeed.build());
   executor.subscriptionBuilder().subscribe((tb) => tb.executorOutbox.build());
   gateway.subscriptionBuilder().subscribe((tb) => tb.pendingMissions.build());
   commander.db.incidentFeed.onInsert(() => cmdIncidents++);
@@ -111,14 +112,49 @@ async function main() {
   responder.db.chatFeed.onInsert(() => resChats++);
   await sleep(800);
 
+  // ---- deterministic correlation (issue #18) ----
+  // evt-1 (contact_open) already ingested -> exactly one auto alert + incident.
+  const autoIncidentRows = () =>
+    [...commander.db.incidentFeed.iter()].filter((i: any) =>
+      typeof i.title === 'string' && i.title.includes('Physical perimeter contact')
+    );
+  check('contact_open auto-created one incident', autoIncidentRows().length === 1,
+    `got ${autoIncidentRows().length}`);
+  const corrAlerts = [...commander.db.opsAlertFeed.iter()].filter(
+    (a: any) => a.ruleId === 'perimeter.contact_open'
+  );
+  check('correlation alert raised', corrAlerts.length === 1, `got ${corrAlerts.length}`);
+  check('alert linked to auto incident', (corrAlerts[0] as any)?.incidentId === (autoIncidentRows()[0] as any)?.id);
+
+  // replay same event + a NEW event in the same 5-min bucket -> still one incident
+  await device.reducers.ingestObservation(obsArgs); // exact dup of evt-1
+  await device.reducers.ingestObservation({ ...obsArgs, eventId: 'evt-7', seq: 3n });
+  await sleep(600);
+  check('replay + same-bucket dedupe keeps one incident', autoIncidentRows().length === 1,
+    `got ${autoIncidentRows().length}`);
+  check('dedupe keeps one correlation alert',
+    [...commander.db.opsAlertFeed.iter()].filter((a: any) => a.ruleId === 'perimeter.contact_open').length === 1);
+
+  // wifi-only anomaly -> alert tier, NO incident (docs/08: no exposure claims)
+  await device.reducers.ingestObservation({
+    ...obsArgs, eventId: 'evt-8', seq: 4n, kind: 'wifi_ap_seen',
+    dataJson: '{"ssid":"SENTINEL-CORP","bssid":"02:AA:BB:CC:DD:01","channel":6,"rssi_dbm":-48}',
+  });
+  await sleep(600);
+  check('wifi_ap_seen alert only, no incident',
+    [...commander.db.opsAlertFeed.iter()].some((a: any) => a.ruleId === 'rf.ap_seen') &&
+    autoIncidentRows().length === 1);
+
   // ---- incident lifecycle ----
   await commander.reducers.createIncident({
     title: 'Rogue cabinet access', description: 'reed switch opened near rack-01',
     severity: 'high', confidence: 'suspected', traceId: 'inc-trace-1',
   });
   await sleep(500);
-  const incs = [...(await commander.db.incidentFeed.iter())];
-  check('commander sees incident via view', incs.length === 1, `got ${incs.length}`);
+  const incs = [...commander.db.incidentFeed.iter()].filter(
+    (i: any) => i.title === 'Rogue cabinet access'
+  );
+  check('commander sees manual incident via view', incs.length === 1, `got ${incs.length}`);
   const inc = incs[0] as any;
   check('responder denied pre-grant (scoped)', (await responder.db.incidentFeed.count()) === 0n);
   const incId = inc.id as string;
@@ -201,7 +237,10 @@ async function main() {
   await commander.reducers.setIncidentStatus({ incidentId: incId, status: 'triage', expectedVersion: 1n, note: 'ack' });
   await commander.reducers.setIncidentStatus({ incidentId: incId, status: 'investigating', expectedVersion: 2n, note: 'triage done' });
   await sleep(300);
-  check('status transition ok', ((await commander.db.incidentFeed.iter()).next().value as any).status.tag.toLowerCase() === 'investigating');
+  const manualRow = [...commander.db.incidentFeed.iter()].find(
+    (i: any) => i.title === 'Rogue cabinet access'
+  ) as any;
+  check('status transition ok', manualRow?.status?.tag?.toLowerCase() === 'investigating');
 
   // unsubscribe
   for (const s of [feedA, feedB, chatA, chatB]) s.unsubscribe();

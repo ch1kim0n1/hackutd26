@@ -3,6 +3,7 @@ import type { DeviceStatusValue, TrustTierValue } from './schema';
 import {
   audit,
   boundedString,
+  correlateObservation,
   jsonBounded,
   microsToTimestamp,
   nowMicros,
@@ -105,7 +106,7 @@ export const ingestObservation = spacetimedb.reducer(
     }
 
     // --- insert -----------------------------------------------------------
-    ctx.db.observations.insert({
+    const obsRow = ctx.db.observations.insert({
       id: 0n,
       eventId: eventIdClean,
       deviceId: deviceIdClean,
@@ -116,6 +117,18 @@ export const ingestObservation = spacetimedb.reducer(
       zoneId: zoneIdClean,
       dataJson: dataClean,
       trustTier: effectiveTrust,
+      traceId: traceClean,
+    });
+
+    // Deterministic correlation (issue #18): alert for matched kinds,
+    // incident for incident-tier rules — same transaction, replay-safe.
+    correlateObservation(ctx, {
+      id: obsRow.id,
+      eventId: eventIdClean,
+      deviceId: deviceIdClean,
+      kind: kindClean,
+      observedAt,
+      zoneId: zoneIdClean,
       traceId: traceClean,
     });
 

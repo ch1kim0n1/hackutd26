@@ -463,6 +463,16 @@ const health = table(
   }
 );
 
+const correlationDedupe = table(
+  { name: 'correlation_dedupe', public: false },
+  {
+    key: t.string().primaryKey(),
+    alertId: t.u64(),
+    incidentId: t.string(),
+    createdAt: t.timestamp().index('btree'),
+  }
+);
+
 export const maintenanceTicks = table(
   { name: 'maintenance_ticks', public: false },
   {
@@ -491,12 +501,13 @@ const spacetimedb = schema({
   auditEvents,
   rfFrames,
   health,
+  correlationDedupe,
   maintenanceTicks,
 });
 
 export {
   devices, zones, assets, devicePrincipals, observations, alerts, incidents,
   incidentAccess, evidence, missions, scopeEntries, actions, approvals, outbox,
-  usersAndRoles, chatMessages, auditEvents, rfFrames, health,
+  usersAndRoles, chatMessages, auditEvents, rfFrames, health, correlationDedupe,
 };
 export default spacetimedb;

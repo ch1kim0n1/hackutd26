@@ -75,6 +75,35 @@ cross-incident subscriptions are denied by construction, not by UI filtering.
 - **Authorization failures** surface as `SenderError` rejections; nothing
   is partially written (single transaction per reducer).
 
+## Deterministic correlation (issue #18)
+
+`ingestObservation` runs `correlateObservation` inside the same transaction
+after every accepted observation. Rules are a fixed kind→template map in
+`lib.ts` (`CORRELATION_RULES`):
+
+| kind | ruleId | tier | result |
+|------|--------|------|--------|
+| `contact_open` | `perimeter.contact_open` | incident | alert + auto-incident |
+| `door_state` | `door.state_change` | alert | alert only |
+| `motion` | `physical.motion` | alert | alert only |
+| `wifi_ap_seen` | `rf.ap_seen` | alert | alert only |
+
+- **Replay-safe:** `correlation_dedupe.key = ruleId:deviceId:zoneId:bucket`
+  (5-minute buckets on `observed_at`) makes the whole observation→alert→
+  incident chain idempotent — replayed `event_id`s no-op earlier in ingest,
+  and a *different* event in the same bucket still cannot double-incident.
+- **Auto-incidents** are created `status=new`, `confidence=suspected`,
+  commander = first non-revoked commander in the directory (deterministic
+  `createdAt` order), and get commander access + a system chat note. If no
+  commander exists the alert is still raised (degraded, never silent).
+- **RF-only anomalies never create incidents** — docs/08 forbids exposure
+  claims from Wi-Fi/SDR anomalies alone; they stay alert-tier for humans.
+- Downstream wiring is unchanged: incidents flow through
+  `incidentFeed`/`incidentAlertFeed`/`chatFeed`/`scopeFeed` views to every
+  authorized subscriber (verified live for two clients in `tests/smoke.ts`),
+  missions via `assignMission`→`pendingMissions`→device, actions via
+  propose→approve→`outbox`→executor→`verifyContainment`.
+
 ## Build / publish / test
 
 ```sh
