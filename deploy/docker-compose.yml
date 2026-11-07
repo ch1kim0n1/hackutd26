@@ -1,0 +1,68 @@
+# SENTINEL HIVE dev/test stack — trusted management plane only.
+# The untrusted lab (pucks, rover, test AP, Kismet/SDR) is NEVER attached
+# here; it reaches this plane exclusively through the gateway service
+# (services/gateway), which enforces schema + per-device ACLs.
+#
+#   docker compose -f deploy/docker-compose.yml up -d
+#
+# Secrets are injected via deploy/env/*.env (gitignored) — see deploy/README.md.
+
+name: sentinel-hive-dev
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    container_name: sh-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/aclfile:/mosquitto/config/aclfile:ro
+      - ./mosquitto/passwordfile:/mosquitto/config/passwordfile:ro
+    healthcheck:
+      # broker reachable (auth/ACL correctness is exercised by the gateway)
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 1883 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  spacetimedb:
+    image: clockworklabs/spacetime:v2.14.1
+    container_name: sh-spacetimedb
+    command: ["start", "--listen-addr", "0.0.0.0:3000"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - spacetime-data:/root/.local/share/spacetime
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/v1/ping >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  lab-executor:
+    # Stand-in for the restricted lab action executor (firewall/VLAN lab
+    # endpoint). Receives approved action payloads from the gateway outbox
+    # worker and records them; replace with the real executor in the field.
+    image: node:22-alpine
+    container_name: sh-lab-executor
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    volumes:
+      - ./lab-executor/server.mjs:/app/server.mjs:ro
+    environment:
+      EXECUTOR_TOKEN: ${EXECUTOR_WEBHOOK_TOKEN:-}
+      EXECUTOR_PORT: "8082"
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+volumes:
+  spacetime-data:

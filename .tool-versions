@@ -1,0 +1,5 @@
+# Pinned toolchain versions for the SENTINEL HIVE dev/test deployment.
+# spacetime CLI: 2.14.1  (matches clockworklabs/spacetime:v2.14.1 image)
+# node:           >=22.6 (tsx + spacetimedb SDK)
+# npm:            >=10
+nodejs 22.11.0

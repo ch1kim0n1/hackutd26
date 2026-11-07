@@ -1,0 +1,31 @@
+# Per-device MQTT ACLs. The topic carries the authoritative device_id;
+# devices may publish ONLY their own telemetry topic and subscribe ONLY
+# their own command topic. The gateway service account reads all telemetry
+# and writes all command topics. No device can reach admin/retained/global
+# topics.
+
+# --- gateway service identity ---
+user sentinel-gateway
+topic read sentinel/v1/+/telemetry
+topic write sentinel/v1/+/command
+
+# --- lab devices (one stanza per enrolled device) ---
+user device-puck-a-01
+topic write sentinel/v1/puck-a-01/telemetry
+topic read sentinel/v1/puck-a-01/command
+
+user device-rover-01
+topic write sentinel/v1/rover-01/telemetry
+topic read sentinel/v1/rover-01/command
+
+user device-puck-wifi-01
+topic write sentinel/v1/puck-wifi-01/telemetry
+topic read sentinel/v1/puck-wifi-01/command
+
+user device-kismet-01
+topic write sentinel/v1/kismet-01/telemetry
+topic read sentinel/v1/kismet-01/command
+
+user device-sdr-01
+topic write sentinel/v1/sdr-01/telemetry
+topic read sentinel/v1/sdr-01/command
