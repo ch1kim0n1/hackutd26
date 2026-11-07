@@ -130,6 +130,17 @@ Until a mission-broker shim (subscribe → sign/verify → file/serial handoff)
 exists, drive rover missions via signed mission files
 (`run-mission <file>`) rather than the MQTT command topic.
 
+### Known gap — executor composition
+
+`apps/containment/executor` (PR #34) is a Python library consuming an
+in-process `Outbox` with independent verification. The deployed path today
+is gateway outbox worker → `POST EXECUTOR_WEBHOOK_URL` →
+`deploy/lab-executor/server.mjs`, which only *records* approved payloads
+(idempotent by fingerprint) — it does not run the Python executor's
+verify-before-VERIFIED flow. Wiring the library behind an HTTP service (or
+porting the outbox worker to Python) is follow-up work; treat lab-executor
+acknowledgements as "delivered to lab", not verified containment.
+
 ## Tests / evidence
 
 - `spacetimedb`: `cd spacetimedb && npm run test:smoke` — 33-check live
