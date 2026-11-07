@@ -1,0 +1,31 @@
+{
+  "receivers": {
+    "rtl-sdr-01": {
+      "model": "rtl-sdr",
+      "min_hz": 500000,
+      "max_hz": 1750000000,
+      "max_sample_rate_hz": 2500000,
+      "iq_format": "cs8",
+      "live_capable": true,
+      "notes": "Generic RTL-SDR dongle. CANNOT capture 2.4 GHz Wi-Fi. Use 433.92 MHz ISM test emitter band or sub-GHz sensors."
+    },
+    "hackrf-01": {
+      "model": "hackrf-one",
+      "min_hz": 1000000,
+      "max_hz": 6000000000,
+      "max_sample_rate_hz": 20000000,
+      "iq_format": "cs8",
+      "live_capable": false,
+      "notes": "Wideband 1 MHz-6 GHz capable of 2.4 GHz, but not yet wired/validated in this deployment."
+    },
+    "pluto-01": {
+      "model": "adalm-pluto",
+      "min_hz": 325000000,
+      "max_hz": 3800000000,
+      "max_sample_rate_hz": 20000000,
+      "iq_format": "cs12",
+      "live_capable": false,
+      "notes": "PlutoSDR capable of 2.4 GHz Wi-Fi band IF actually deployed and calibrated; not currently owned."
+    }
+  }
+}

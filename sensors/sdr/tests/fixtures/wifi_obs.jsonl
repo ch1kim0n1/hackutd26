@@ -1,0 +1,5 @@
+{"kind":"wifi_ap_seen","data":{"ssid":"SENTINEL-CORP","bssid":"02:aa:bb:cc:dd:01","channel":6,"rssi_dbm":-48}}
+{"kind":"wifi_ap_seen","data":{"ssid":"SENTINEL-CORP","bssid":"02:aa:bb:cc:dd:01","channel":6,"rssi_dbm":-52}}
+{"kind":"wifi_ap_seen","data":{"ssid":"SENTINEL-GUEST","bssid":"02:aa:bb:cc:dd:02","channel":1,"rssi_dbm":-61}}
+{"kind":"wifi_ap_seen","data":{"ssid":"SENTINEL-CORP","bssid":"02:aa:bb:cc:dd:99","channel":6,"rssi_dbm":-55}}
+{"kind":"cabinet_contact_open","data":{"contact":"open","authorized":false}}
