@@ -1,0 +1,30 @@
+{
+  "type": "wifi_channel_activity",
+  "zone_id": "rack-01",
+  "generated_at": "2026-11-07T21:41:08Z",
+  "source_mode": "live",
+  "ap_count": 3,
+  "channels": {
+    "6": {
+      "observation_count": 3,
+      "unique_bssids": 2,
+      "ssids": [
+        "SENTINEL-CORP"
+      ],
+      "rssi_dbm_min": -55,
+      "rssi_dbm_max": -48,
+      "rssi_dbm_mean": -51.7
+    },
+    "1": {
+      "observation_count": 1,
+      "unique_bssids": 1,
+      "ssids": [
+        "SENTINEL-GUEST"
+      ],
+      "rssi_dbm_min": -61,
+      "rssi_dbm_max": -61,
+      "rssi_dbm_mean": -61.0
+    }
+  },
+  "notes": "Wi-Fi AP observation activity \u2014 not an RF spectrum waterfall"
+}
