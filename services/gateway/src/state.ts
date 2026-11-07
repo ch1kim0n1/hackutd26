@@ -10,6 +10,8 @@ export interface GatewayState {
   dispatchedMissions: Record<string, 'published'>;
   /** outboxId -> terminal outcome already reported (survives restarts). */
   completedOutbox: Record<string, 'succeeded' | 'failed'>;
+  /** deviceId -> last gateway-assigned seq for normalized telemetry. */
+  seqCounters: Record<string, string>;
 }
 
 export class StateStore {
@@ -18,7 +20,8 @@ export class StateStore {
   constructor(private file: string) {
     this.state = existsSync(file)
       ? (JSON.parse(readFileSync(file, 'utf8')) as GatewayState)
-      : { dispatchedMissions: {}, completedOutbox: {} };
+      : { dispatchedMissions: {}, completedOutbox: {}, seqCounters: {} };
+    this.state.seqCounters ??= {};
   }
 
   hasDispatched(missionId: string): boolean {
@@ -32,6 +35,15 @@ export class StateStore {
 
   hasCompletedOutbox(outboxId: string): boolean {
     return this.state.completedOutbox[outboxId] !== undefined;
+  }
+
+  /** Next monotonic seq for gateway-normalized device telemetry. */
+  nextSeq(deviceId: string): bigint {
+    const cur = BigInt(this.state.seqCounters[deviceId] ?? '0');
+    const next = cur + 1n;
+    this.state.seqCounters[deviceId] = next.toString();
+    this.flush();
+    return next;
   }
 
   markOutboxDone(outboxId: string, outcome: 'succeeded' | 'failed'): void {

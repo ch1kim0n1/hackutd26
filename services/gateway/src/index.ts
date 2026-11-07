@@ -2,7 +2,7 @@ import http from 'node:http';
 import mqtt from 'mqtt';
 import { DbConnection } from '../bindings/index';
 import { loadConfig } from './config.js';
-import { topicDeviceId, validateEnvelope } from './validate.js';
+import { normalizeTelemetry, topicDeviceId } from './validate.js';
 import { StateStore } from './state.js';
 
 // SENTINEL HIVE gateway — the single constrained bridge between the
@@ -107,18 +107,21 @@ async function handleTelemetry(topic: string, payload: Buffer): Promise<void> {
     stats.rejected++;
     return; // not a telemetry topic shape we own
   }
-  const result = validateEnvelope(payload, deviceId);
+  const result = normalizeTelemetry(payload, deviceId);
   if (!result.ok) {
     stats.rejected++;
     stats.lastError = `reject ${topic}: ${result.reason}`;
     return;
   }
   const v = result.value;
+  // Rover-normalized events carry seq=0n -> assign the persisted per-device
+  // monotonic seq so SpacetimeDB replay protection still applies.
+  const seq = v.seqAssigned ? state.nextSeq(v.deviceId) : v.seq;
   await conn.reducers.ingestObservation({
     eventId: v.eventId,
     deviceId: v.deviceId,
     kind: v.kind,
-    seq: v.seq,
+    seq,
     observedAtMicros: v.observedAtMicros,
     zoneId: v.zoneId,
     dataJson: v.dataJson,

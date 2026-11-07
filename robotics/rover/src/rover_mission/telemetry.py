@@ -55,7 +55,12 @@ class HttpPublisher:
 
 
 class MqttPublisher:
-    """Optional MQTT transport (paho-mqtt). Lazy import."""
+    """Optional MQTT transport (paho-mqtt). Lazy import.
+
+    Auth via MQTT_USERNAME/MQTT_PASSWORD env (required by the Sentinel Hive
+    Mosquitto ACL). Topic must be the per-device ACL topic, e.g.
+    sentinel/v1/rover-01/telemetry.
+    """
 
     def __init__(self, host: str, port: int, topic: str, client_id: str):
         try:
@@ -64,7 +69,15 @@ class MqttPublisher:
             raise RuntimeError("paho-mqtt not installed")
         import paho.mqtt.client as mqtt
 
-        self._client = mqtt.Client(client_id=client_id)
+        try:
+            self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
+                                       client_id=client_id)
+        except AttributeError:  # paho-mqtt 1.x fallback
+            self._client = mqtt.Client(client_id=client_id)
+        username = os.environ.get("MQTT_USERNAME")
+        password = os.environ.get("MQTT_PASSWORD")
+        if username:
+            self._client.username_pw_set(username, password or "")
         self._topic = topic
         self._client.connect(host, port, keepalive=30)
         self._client.loop_start()

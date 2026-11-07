@@ -102,6 +102,34 @@ each device may `write` only `sentinel/v1/<device_id>/telemetry` and `read`
 only `sentinel/v1/<device_id>/command`. The `sentinel-gateway` account reads
 all telemetry and writes all command topics. Anonymous access is disabled.
 
+### Rover telemetry
+
+`robotics/rover` publishes mission-state events over MQTT when configured:
+
+```bash
+MQTT_HOST=127.0.0.1 MQTT_PORT=1883 \
+MQTT_TOPIC=sentinel/v1/rover-01/telemetry \
+MQTT_USERNAME=device-rover-01 MQTT_PASSWORD=<from mqtt.env> \
+MQTT_CLIENT_ID=rover-01
+```
+
+The topic MUST match the ACL (`sentinel/v1/<device_id>/telemetry`) and the
+username MUST be that device's broker account. The gateway normalizes the
+rover event shape into the canonical observation envelope
+(`kind=mission_status`, gateway-assigned monotonic seq, deterministic
+`event_id` from mission/command/event identity) before `ingestObservation`,
+so replay protection and dedupe still apply.
+
+### Known gap — signed mission downlink
+
+The gateway publishes approved mission commands to
+`sentinel/v1/<device>/command`, but `robotics/rover` requires an
+HMAC-SHA256 `signature` over the mission contract (PR #11). The module's
+`commandJson` does not carry one, and the signing secret lives on the rover.
+Until a mission-broker shim (subscribe → sign/verify → file/serial handoff)
+exists, drive rover missions via signed mission files
+(`run-mission <file>`) rather than the MQTT command topic.
+
 ## Tests / evidence
 
 - `spacetimedb`: `cd spacetimedb && npm run test:smoke` — 33-check live

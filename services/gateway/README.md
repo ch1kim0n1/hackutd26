@@ -19,6 +19,14 @@ SpacetimeDB executorOutbox --> webhook --> recordExecutorOutcome
   disagrees is rejected as forgery. Valid events are forwarded to
   `ingestObservation` as `trust_tier = gateway_validated`; the reducer
   enforces per-device seq replay protection, event-id dedupe and freshness.
+- **Device-shape normalization.** Payloads that fail strict envelope
+  validation are retried as device-native shapes. Rover mission-runtime
+  events (`robotics/rover`: `mission_id`/`command_id`/`state`/`pose`, no
+  `event_id`/`seq`/`kind`) are normalized to `kind=mission_status` with a
+  deterministic `event_id` (`<device>:<mission>:<command>:<event>:<ts>`)
+  and a gateway-assigned per-device monotonic `seq` persisted in
+  `GATEWAY_STATE_FILE`, preserving replay protection and dedupe. See
+  `test/validate.test.ts` (12 checks, no broker needed).
 - **Mission downlink.** Watches the role-scoped `pending_missions` view and
   publishes each approved mission's canonical `commandJson` to
   `<prefix>/<device_id>/command`, then calls `markMissionDispatched`.

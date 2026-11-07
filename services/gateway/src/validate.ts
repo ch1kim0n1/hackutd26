@@ -2,12 +2,18 @@
 // The MQTT topic supplies the authoritative device_id; a mismatched payload
 // field is a forgery attempt and rejected.
 
+// Keep in sync with spacetimedb/src/lib.ts OBSERVATION_KINDS.
 export const OBSERVATION_KINDS = new Set([
   'wifi_ap_seen',
   'wifi_probe',
   'ble_beacon',
+  'ble_beacon_seen',
   'contact_open',
   'contact_closed',
+  'cabinet_contact_open',
+  'cabinet_contact_closed',
+  'device_health',
+  'device_offline',
   'motion',
   'photo_captured',
   'mission_status',
@@ -127,6 +133,104 @@ export function validateEnvelope(
       zoneId,
       dataJson,
       traceId,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Rover mission-runtime telemetry (robotics/rover) -> canonical envelope.
+// The rover emits state-transition events {event, mission_id, command_id,
+// state, zone_id, pose, ...} without event_id/seq/kind. The gateway assigns
+// a per-device monotonic seq (persisted) and synthesizes event_id from the
+// mission transition identity so SpacetimeDB replay/dedupe still applies.
+// ---------------------------------------------------------------------------
+
+export interface NormalizedEnvelope extends Omit<TelemetryEnvelope, 'seq'> {
+  /** 0n => gateway must assign next per-device seq. */
+  seq: bigint;
+  seqAssigned: boolean;
+}
+
+export function normalizeTelemetry(
+  raw: Buffer | string,
+  topicDeviceIdValue: string
+): { ok: true; value: NormalizedEnvelope } | { ok: false; reason: string } {
+  const strict = validateEnvelope(raw, topicDeviceIdValue);
+  if (strict.ok) return { ok: true, value: { ...strict.value, seqAssigned: false } };
+
+  const text = typeof raw === 'string' ? raw : raw.toString('utf8');
+  if (Buffer.byteLength(text, 'utf8') > MAX_PACKET_BYTES) {
+    return { ok: false, reason: 'packet exceeds 16KiB' };
+  }
+  let p: Record<string, unknown>;
+  try {
+    p = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return { ok: false, reason: strict.reason };
+  }
+  if (p === null || typeof p !== 'object' || Array.isArray(p)) {
+    return { ok: false, reason: strict.reason };
+  }
+
+  // Rover shape: schema_version + mission_id + state + event.
+  const isRover =
+    p.schema_version === SCHEMA_VERSION &&
+    typeof p.mission_id === 'string' &&
+    typeof p.state === 'string' &&
+    typeof p.event === 'string';
+  if (!isRover) return { ok: false, reason: strict.reason };
+
+  const missionId = bounded(p.mission_id, 'mission_id');
+  const commandId = bounded(p.command_id ?? '', 'command_id') ?? '';
+  const event = bounded(p.event, 'event');
+  const zoneId = bounded(p.zone_id ?? '', 'zone_id');
+  const observedAt = bounded(p.observed_at ?? '', 'observed_at');
+  if (!missionId || !event || !zoneId || !observedAt) {
+    return { ok: false, reason: 'rover event missing mission_id/event/zone_id/observed_at' };
+  }
+  const observedMs = Date.parse(observedAt);
+  if (Number.isNaN(observedMs)) {
+    return { ok: false, reason: 'rover observed_at invalid' };
+  }
+  const payloadDevice = bounded(p.device_id ?? '', 'device_id');
+  if (payloadDevice !== null && payloadDevice !== topicDeviceIdValue) {
+    return { ok: false, reason: 'device_id does not match telemetry topic' };
+  }
+
+  // data carries the rover-specific fields; strip envelope-level keys.
+  const { schema_version, event: _e, mission_id, command_id, device_id, state, zone_id, observed_at, ...rest } = p;
+  void schema_version; void _e; void mission_id; void command_id; void device_id;
+  void state; void zone_id; void observed_at;
+  const data = {
+    mission_id: missionId,
+    command_id: commandId,
+    state: p.state,
+    type: p.type,
+    reason: p.reason,
+    pose_confidence: p.pose_confidence,
+    pose: p.pose,
+    ...rest,
+  };
+  const dataJson = JSON.stringify(data);
+  if (Buffer.byteLength(dataJson, 'utf8') > MAX_DATA_JSON_BYTES) {
+    return { ok: false, reason: 'data exceeds 8KiB' };
+  }
+
+  const eventId = `${topicDeviceIdValue}:${missionId}:${commandId || 'na'}:${event}:${observedMs}`
+    .slice(0, MAX_STR);
+  return {
+    ok: true,
+    value: {
+      schemaVersion: SCHEMA_VERSION,
+      eventId,
+      deviceId: topicDeviceIdValue,
+      seq: 0n,
+      observedAtMicros: BigInt(observedMs) * 1000n,
+      kind: 'mission_status',
+      zoneId,
+      dataJson,
+      traceId: bounded(p.trace_id ?? '', 'trace_id') ?? `rover:${missionId}`,
+      seqAssigned: true,
     },
   };
 }
