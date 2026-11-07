@@ -1,0 +1,13 @@
+{"sim":"start","note":"host mock, not physical hardware"}
+{"cmd":"forward","accepted":true,"reason":""}
+{"scenario":"after_forward","t_ms":2000,"v":1,"kind":"telemetry","seq":1,"uptime_ms":2000,"state":"driving","v_left_mmps":200,"v_right_mmps":200,"odom_dist_mm":336,"odom_heading_rad":0,"pose_x_mm":347.450012,"pose_y_mm":0,"dist_front_mm":400,"dist_rear_mm":400,"estop":false,"obstacle":false,"fault":"none","led":2}
+{"cmd":"turn_left","accepted":true,"reason":""}
+{"cmd":"forward","accepted":true,"reason":""}
+{"scenario":"after_turn_forward","t_ms":4000,"v":1,"kind":"telemetry","seq":2,"uptime_ms":4000,"state":"driving","v_left_mmps":200,"v_right_mmps":200,"odom_dist_mm":475,"odom_heading_rad":1.03718746,"pose_x_mm":442.03775,"pose_y_mm":119.203773,"dist_front_mm":400,"dist_rear_mm":400,"estop":false,"obstacle":false,"fault":"none","led":2}
+{"scenario":"obstacle_hit","t_ms":4020,"v":1,"kind":"telemetry","seq":3,"uptime_ms":4020,"state":"obstacle_hold","v_left_mmps":0,"v_right_mmps":0,"odom_dist_mm":479,"odom_heading_rad":1.03718746,"pose_x_mm":444.072327,"pose_y_mm":122.647682,"dist_front_mm":100,"dist_rear_mm":400,"estop":false,"obstacle":true,"fault":"obstacle","led":5}
+{"scenario":"obstacle_cleared","t_ms":4220,"v":1,"kind":"telemetry","seq":4,"uptime_ms":4220,"state":"idle","v_left_mmps":0,"v_right_mmps":0,"odom_dist_mm":479,"odom_heading_rad":1.03718746,"pose_x_mm":444.072327,"pose_y_mm":122.647682,"dist_front_mm":400,"dist_rear_mm":400,"estop":false,"obstacle":false,"fault":"none","led":1}
+{"scenario":"estop_pressed","t_ms":4240,"v":1,"kind":"telemetry","seq":5,"uptime_ms":4240,"state":"estopped","v_left_mmps":0,"v_right_mmps":0,"odom_dist_mm":479,"odom_heading_rad":1.03718746,"pose_x_mm":444.072327,"pose_y_mm":122.647682,"dist_front_mm":400,"dist_rear_mm":400,"estop":true,"obstacle":false,"fault":"estop","led":4}
+{"scenario":"estop_cleared","t_ms":4440,"v":1,"kind":"telemetry","seq":6,"uptime_ms":4440,"state":"idle","v_left_mmps":0,"v_right_mmps":0,"odom_dist_mm":479,"odom_heading_rad":1.03718746,"pose_x_mm":444.072327,"pose_y_mm":122.647682,"dist_front_mm":400,"dist_rear_mm":400,"estop":false,"obstacle":false,"fault":"none","led":1}
+{"cmd":"forward","accepted":true,"reason":""}
+{"scenario":"watchdog_timeout","t_ms":5080,"v":1,"kind":"telemetry","seq":7,"uptime_ms":5080,"state":"fault","v_left_mmps":0,"v_right_mmps":0,"odom_dist_mm":482,"odom_heading_rad":1.03718746,"pose_x_mm":447.632843,"pose_y_mm":128.67453,"dist_front_mm":400,"dist_rear_mm":400,"estop":false,"obstacle":false,"fault":"watchdog_timeout","led":3}
+{"sim":"done"}

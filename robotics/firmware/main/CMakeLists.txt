@@ -1,0 +1,16 @@
+idf_component_register(
+    SRCS
+        "main.cpp"
+        "rover_types.cpp"
+        "rover_json.cpp"
+        "rover_protocol.cpp"
+        "rover_controller.cpp"
+        "hal_espidf.cpp"
+    INCLUDE_DIRS
+        .
+    REQUIRES
+        driver
+        esp_timer
+        json
+        vl53l1x
+)
