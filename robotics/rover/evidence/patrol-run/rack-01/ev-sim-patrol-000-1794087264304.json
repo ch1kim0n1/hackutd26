@@ -1,0 +1,25 @@
+{
+  "artifact_id": "ev-sim-patrol-000-1794087264304",
+  "mission_id": "sim-patrol-000",
+  "command_id": null,
+  "device_id": "rover-01",
+  "zone_id": "rack-01",
+  "waypoint_id": "wp-rack-b",
+  "camera_id": "cam-mast",
+  "observed_at": "2026-11-07T21:34:24Z",
+  "received_at": "2026-11-07T21:34:24Z",
+  "pose": {
+    "x_mm": 4010.3,
+    "y_mm": 852.4,
+    "heading_rad": -1.1833,
+    "confidence": 0.724,
+    "source": "esp32_odometry+apriltag"
+  },
+  "sha256": "c4cef2dff77794677c6105daa2c70400c814bee8c939215bfa6e95792e64e0c6",
+  "bytes": 284,
+  "width": 640,
+  "height": 480,
+  "format": "bin",
+  "synthetic": true,
+  "storage_ref": "evidence/patrol-run/rack-01/ev-sim-patrol-000-1794087264304.bin"
+}
