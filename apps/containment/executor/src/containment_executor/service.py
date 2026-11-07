@@ -195,9 +195,12 @@ def main() -> None:
         lie_about_success=os.environ.get("EXECUTOR_LIE_ABOUT_SUCCESS") == "1",
     )
     service = ExecutorService(lab=lab, ttl_s=ttl)
-    server = ThreadingHTTPServer(("0.0.0.0", port),
+    # Loopback default — set EXECUTOR_BIND=0.0.0.0 only when a remote
+    # gateway must reach the service (e.g. inside a compose network).
+    bind = os.environ.get("EXECUTOR_BIND", "127.0.0.1")
+    server = ThreadingHTTPServer((bind, port),
                                  make_handler(service, token))
-    print(f"containment-executor-service on :{port}", flush=True)
+    print(f"containment-executor-service on {bind}:{port}", flush=True)
     server.serve_forever()
 
 

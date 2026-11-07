@@ -218,6 +218,45 @@ async function main() {
   const mrows = [...(await commander.db.missionFeed.iter())];
   check('mission dispatched', (mrows[0] as any).state.tag.toLowerCase() === 'dispatched');
 
+  // ---- mission_status telemetry -> mission state machine ----
+  // Rover cannot hold a device principal; its state events arrive through
+  // gateway ingest as mission_status observations. Each must advance the
+  // mission row (mirrors recordMissionResult legality); out-of-order and
+  // foreign-device statuses are skipped, never thrown.
+  const ms = async (ev: string, seq: bigint, state: string, dev = 'rover-01') =>
+    gateway.reducers.ingestObservation({
+      eventId: ev, deviceId: dev, kind: 'mission_status', seq,
+      observedAtMicros: nowMicros, zoneId: 'rack-01',
+      dataJson: JSON.stringify({ mission_id: misId, command_id: misId, state, reason: '' }),
+      trustTier: 'gateway_validated', traceId: `ms-${ev}`,
+    });
+  const missionTag = async () => {
+    const rows = [...(await commander.db.missionFeed.iter())];
+    return String((rows[0] as any).state.tag).toLowerCase();
+  };
+  await ms('evt-ms-1', 20n, 'accepted');
+  await sleep(300);
+  check('mission_status accepted advances mission', (await missionTag()) === 'accepted');
+  await ms('evt-ms-2', 21n, 'navigating');
+  await sleep(300);
+  check('mission_status navigating advances mission', (await missionTag()) === 'navigating');
+  // replay terminal: completed advances; duplicate event no-ops via eventId
+  await ms('evt-ms-3', 22n, 'completed');
+  await sleep(300);
+  check('mission_status completed advances mission', (await missionTag()) === 'completed');
+  await gateway.reducers.ingestObservation({
+    eventId: 'evt-ms-3', deviceId: 'rover-01', kind: 'mission_status', seq: 23n,
+    observedAtMicros: nowMicros, zoneId: 'rack-01',
+    dataJson: JSON.stringify({ mission_id: misId, state: 'failed' }),
+    trustTier: 'gateway_validated', traceId: 'ms-dup',
+  });
+  await sleep(300);
+  check('duplicate mission_status event is no-op', (await missionTag()) === 'completed');
+  // foreign device must not move rover's mission
+  await ms('evt-ms-4', 24n, 'failed', 'puck-a-01');
+  await sleep(300);
+  check('foreign-device status ignored', (await missionTag()) === 'completed');
+
   // ---- scope ----
   await responder.reducers.updateScope({
     incidentId: incId, assetId: 'srv-01', datasetCategory: 'customer_records',

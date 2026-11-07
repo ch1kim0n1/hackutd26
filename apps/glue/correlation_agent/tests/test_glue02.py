@@ -35,7 +35,7 @@ def rig():
 
 def candidate(corr):
     corr.observe("wifi_ap_seen", "rack-01", "ev-rf")
-    return corr.observe("cabinet_open", "rack-01", "ev-door")
+    return corr.observe("cabinet_contact_open", "rack-01", "ev-door")
 
 
 def script3():

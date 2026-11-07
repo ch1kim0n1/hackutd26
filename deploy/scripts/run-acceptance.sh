@@ -42,11 +42,30 @@ PY_PKGS=(
   apps/containment/policy apps/containment/executor apps/containment/audit
   apps/control_plane apps/identity apps/security_tests
   apps/incident_records apps/scope_matrix apps/incident_chat
+  apps/glue/vertical_slice apps/glue/correlation_agent
+  apps/glue/rover_mission apps/glue/twin_feed apps/glue/closed_loop
+  apps/glue/acceptance apps/ops/chaos_harness apps/dashboard/rf_intel
+)
+# (pkg, pytest target) pairs for packages without a tests/ dir
+PY_ROOT_TESTS=(
+  "apps/ops/demo:test_demo.py"
+  "apps/dashboard/ops_ux:test_ux.py"
 )
 for pkg in "${PY_PKGS[@]}"; do
   name="pytest-${pkg//\//_}"
   echo "=== $name ==="
   if run_py "$name" "$pkg"; then
+    pass=$((pass+1)); RESULTS+=("PASS|$name")
+    tail -1 "$OUT/logs/$name.log" | sed 's/^/  /'
+  else
+    fail=$((fail+1)); RESULTS+=("FAIL|$name"); echo "  FAILED — see $OUT/logs/$name.log"
+  fi
+done
+for pair in "${PY_ROOT_TESTS[@]}"; do
+  pkg="${pair%%:*}"; tgt="${pair##*:}"
+  name="pytest-${pkg//\//_}"
+  echo "=== $name ==="
+  if run_py "$name" "$pkg" "$tgt"; then
     pass=$((pass+1)); RESULTS+=("PASS|$name")
     tail -1 "$OUT/logs/$name.log" | sed 's/^/  /'
   else

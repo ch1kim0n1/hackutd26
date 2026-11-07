@@ -47,7 +47,8 @@ class CorrelationEngine:
         evs = self.pending[zone]
         has_rf = any(e["kind"] in ("wifi_ap_seen", "deauth_burst")
                      for e in evs)
-        has_phy = any(e["kind"] in ("cabinet_open", "motion")
+        has_phy = any(e["kind"] in ("cabinet_contact_open", "contact_open",
+                                   "motion")
                       for e in evs)
         if has_rf and has_phy:
             cand = IncidentCandidate(

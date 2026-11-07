@@ -1,6 +1,7 @@
 import spacetimedb from './schema';
 import type { DeviceStatusValue, TrustTierValue } from './schema';
 import {
+  applyMissionStatus,
   audit,
   boundedString,
   correlateObservation,
@@ -119,6 +120,12 @@ export const ingestObservation = spacetimedb.reducer(
       trustTier: effectiveTrust,
       traceId: traceClean,
     });
+
+    // mission_status telemetry advances the mission state machine
+    // (rover relays through MQTT; mirrors recordMissionResult legality).
+    if (kindClean === 'mission_status') {
+      applyMissionStatus(ctx, deviceIdClean, dataClean, eventIdClean, traceClean);
+    }
 
     // Deterministic correlation (issue #18): alert for matched kinds,
     // incident for incident-tier rules — same transaction, replay-safe.

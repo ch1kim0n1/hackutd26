@@ -8,6 +8,7 @@ import type {
   ConfidenceValue,
   IncidentAccessLevelValue,
   IncidentStatusValue,
+  MissionStateValue,
   SeverityValue,
 } from './schema';
 import { Timestamp } from 'spacetimedb';
@@ -556,5 +557,79 @@ export function correlateObservation(
       bucket: bucket.toString(),
     },
     traceId: obs.traceId,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// mission_status observations -> mission state machine (rover telemetry path)
+// ---------------------------------------------------------------------------
+
+const MISSION_STATUS_DEVICE_STATES = new Set([
+  'accepted',
+  'navigating',
+  'completed',
+  'failed',
+]);
+const MISSION_STATUS_RANK: Record<string, number> = {
+  proposed: -1,
+  approved: 0,
+  dispatched: 1,
+  accepted: 2,
+  navigating: 3,
+};
+const MISSION_TERMINAL = new Set(['completed', 'failed', 'expired', 'cancelled']);
+
+/**
+ * Rover/device mission telemetry arrives as `mission_status` observations
+ * through the gateway (the rover cannot hold a device principal). Mirrors
+ * the recordMissionResult transition legality inside the ingest transaction
+ * so the mission projection tracks real device progress. Non-throwing:
+ * an unmatched/illegal status is skipped — the observation row stands on
+ * its own as evidence; out-of-order telemetry must not fail ingest.
+ */
+export function applyMissionStatus(
+  ctx: Ctx,
+  deviceId: string,
+  dataJson: string,
+  eventId: string,
+  traceId: string
+): void {
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(dataJson) as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const missionId = typeof data.mission_id === 'string' ? data.mission_id : '';
+  const state = typeof data.state === 'string' ? data.state : '';
+  if (missionId === '' || !MISSION_STATUS_DEVICE_STATES.has(state)) return;
+
+  const mission = ctx.db.missions.id.find(missionId);
+  if (mission === null || mission.deviceId !== deviceId) return;
+  const from = mission.state.tag;
+  if (MISSION_TERMINAL.has(from)) return; // terminal replay: no-op
+  const fromRank = MISSION_STATUS_RANK[from] ?? -2;
+  const ok =
+    (state === 'accepted' && (from === 'dispatched' || from === 'accepted')) ||
+    (state === 'navigating' &&
+      (from === 'dispatched' || from === 'accepted' || from === 'navigating')) ||
+    ((state === 'completed' || state === 'failed') && fromRank >= 1);
+  if (!ok) return;
+
+  const reason = typeof data.reason === 'string' ? data.reason.slice(0, 256) : '';
+  ctx.db.missions.id.update({
+    ...mission,
+    state: tagValue<MissionStateValue>(state),
+    resultJson: canonicalJson({ source: 'mission_status', eventId, reason }),
+    updatedAt: ctx.timestamp,
+    version: mission.version + 1n,
+  });
+  audit(ctx, {
+    actor: ctx.sender,
+    operation: 'mission.status_observed',
+    entity: `mission:${missionId}`,
+    incidentId: mission.incidentId,
+    after: { from, to: state, eventId, provenance: 'device_relayed' },
+    traceId,
   });
 }
