@@ -1,0 +1,56 @@
+{
+  "device_id": "rover-01",
+  "home_waypoint_id": "wp-home",
+  "comment": "SURVEYED MOCK OFFICE — replace coordinates with measured values during H06 calibration. Units: millimetres, x east / y north, heading radians CCW from +x. tag_id binds AprilTag 36h11 ids to waypoints.",
+  "zones": [
+    {
+      "id": "lobby",
+      "name": "Lobby",
+      "bounds": {"x_min": 0, "y_min": 0, "x_max": 2000, "y_max": 2000},
+      "waypoints": [
+        {"id": "wp-home", "x_mm": 500, "y_mm": 500, "tag_id": 0, "capture": true, "dwell_ms": 500},
+        {"id": "wp-lobby-n", "x_mm": 1500, "y_mm": 500, "tag_id": 1}
+      ]
+    },
+    {
+      "id": "rack-01",
+      "name": "Server rack row",
+      "bounds": {"x_min": 2000, "y_min": 0, "x_max": 4500, "y_max": 2000},
+      "waypoints": [
+        {"id": "wp-rack-a", "x_mm": 2500, "y_mm": 800, "tag_id": 10, "capture": true, "rescan": true, "dwell_ms": 1500},
+        {"id": "wp-rack-b", "x_mm": 4000, "y_mm": 800, "tag_id": 11, "capture": true, "dwell_ms": 1000}
+      ]
+    },
+    {
+      "id": "desk-row-a",
+      "name": "Desk row A",
+      "bounds": {"x_min": 0, "y_min": 2000, "x_max": 3000, "y_max": 5000},
+      "waypoints": [
+        {"id": "wp-desk-1", "x_mm": 800, "y_mm": 3000, "tag_id": 20},
+        {"id": "wp-desk-2", "x_mm": 2200, "y_mm": 3000, "tag_id": 21, "rescan": true, "dwell_ms": 1000}
+      ]
+    },
+    {
+      "id": "cabinet-01",
+      "name": "Equipment cabinet (reed switch zone)",
+      "bounds": {"x_min": 4500, "y_min": 2000, "x_max": 6000, "y_max": 4000},
+      "waypoints": [
+        {"id": "wp-cabinet", "x_mm": 5200, "y_mm": 3000, "tag_id": 30, "capture": true, "dwell_ms": 2000}
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "patrol-main",
+      "name": "Main office patrol",
+      "waypoint_ids": ["wp-home", "wp-lobby-n", "wp-rack-a", "wp-rack-b", "wp-cabinet", "wp-desk-2", "wp-desk-1"],
+      "laps": 1
+    },
+    {
+      "id": "patrol-rack",
+      "name": "Rack inspection loop",
+      "waypoint_ids": ["wp-rack-a", "wp-rack-b"],
+      "laps": 2
+    }
+  ]
+}
