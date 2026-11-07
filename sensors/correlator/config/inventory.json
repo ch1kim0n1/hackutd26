@@ -1,0 +1,6 @@
+{
+  "known_bssids": {
+    "SENTINEL-CORP": ["02:AA:BB:CC:DD:01"],
+    "SENTINEL-GUEST": ["02:AA:BB:CC:DD:02"]
+  }
+}
