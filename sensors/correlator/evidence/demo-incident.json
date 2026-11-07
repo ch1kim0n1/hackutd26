@@ -1,0 +1,88 @@
+{
+  "observations": {
+    "total": 4,
+    "duplicates": 1
+  },
+  "alerts": [
+    {
+      "rule_id": "RF01",
+      "severity": "medium",
+      "state": "candidate",
+      "zone_id": "rack-01",
+      "summary": "known SSID 'SENTINEL-CORP' seen with unexpected BSSID 02:aa:bb:cc:dd:99 in 2 scans (zone rack-01)",
+      "observation_ids": [
+        "evt-demo-w1",
+        "evt-demo-w2"
+      ],
+      "evidence_quality": {
+        "scans_with_unknown_bssid": 2,
+        "sources": [
+          "esp32_puck"
+        ],
+        "ssid_known": true,
+        "note": "suspicion only \u2014 could be authorized AP change, rogue AP, or capture artifact"
+      }
+    },
+    {
+      "rule_id": "PHY01",
+      "severity": "high",
+      "state": "candidate",
+      "zone_id": "rack-01",
+      "summary": "cabinet contact opened outside maintenance window (zone rack-01)",
+      "observation_ids": [
+        "evt-demo-c1"
+      ],
+      "evidence_quality": {
+        "authorized": false,
+        "maintenance_window": false,
+        "note": "physical anomaly candidate \u2014 could be authorized work outside recorded window, fault, or tamper"
+      }
+    },
+    {
+      "rule_id": "CORR01",
+      "severity": "high",
+      "state": "candidate",
+      "zone_id": "rack-01",
+      "summary": "RF anomaly (known SSID 'SENTINEL-CORP' seen with unexpected BSSID 02:aa:bb:cc:dd:99 in 2 scans (zone rack-01)) correlated with physical cabinet event 0s apart in rack-01 \u2014 incident candidate",
+      "observation_ids": [
+        "evt-demo-w1",
+        "evt-demo-w2",
+        "evt-demo-c1"
+      ],
+      "evidence_quality": {
+        "rf01_alert": 1794087578.336132,
+        "phy01_alert": 1794087578.33615,
+        "delta_s": 0.0,
+        "window_s": 120.0,
+        "note": "correlation is circumstantial \u2014 investigate, do not assert breach"
+      }
+    }
+  ],
+  "incident_candidates": [
+    {
+      "title": "Suspected physical+RF anomaly in rack-01",
+      "zone_id": "rack-01",
+      "alert_ids": [
+        "RF01",
+        "PHY01",
+        "CORR01"
+      ],
+      "evidence": [
+        "evt-demo-w1",
+        "evt-demo-w2",
+        "evt-demo-c1"
+      ],
+      "confidence": "medium \u2014 two independent sensor classes agree",
+      "alternatives": [
+        "authorized maintenance with unrecorded window",
+        "coincidental unrelated events",
+        "capture/labeling error"
+      ],
+      "unknowns": [
+        "whether RF01 BSSID is attacker-controlled",
+        "who opened cabinet and why",
+        "whether data left the zone"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "observations": {
+    "total": 3,
+    "duplicates": 1
+  },
+  "alerts": [
+    {
+      "rule_id": "RF01",
+      "severity": "medium",
+      "state": "candidate",
+      "zone_id": "rack-01",
+      "summary": "known SSID 'SENTINEL-CORP' seen with unexpected BSSID 02:aa:bb:cc:dd:99 in 2 scans (zone rack-01)",
+      "observation_ids": [
+        "evt-demo-m1",
+        "evt-demo-m2"
+      ],
+      "evidence_quality": {
+        "scans_with_unknown_bssid": 2,
+        "sources": [
+          "esp32_puck"
+        ],
+        "ssid_known": true,
+        "note": "suspicion only \u2014 could be authorized AP change, rogue AP, or capture artifact"
+      }
+    }
+  ],
+  "incident_candidates": []
+}
