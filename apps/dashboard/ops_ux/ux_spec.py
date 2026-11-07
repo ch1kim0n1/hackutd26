@@ -19,7 +19,8 @@ VISIBILITY = {
                   "chat", "approvals"},
     "responder": {"incident_queue", "incident_doc", "scope_matrix",
                   "chat"},
-    "observer": {"incident_queue", "incident_doc", "chat"},
+    "observer": {"incident_queue", "incident_doc", "scope_matrix",
+                 "chat"},
     "agent": {"incident_queue", "chat"},
 }
 
