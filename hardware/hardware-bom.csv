@@ -1,0 +1,40 @@
+item,line,component,manufacturer,part_number,qty,procurement_status,unit_cost_usd,extended_cost_usd,notes
+compute,rover,Single-board computer,Raspberry Pi,Raspberry Pi 5 8GB,1,proposed,80.00,80.00,Active cooler mandatory; powered via dedicated 5V/5A rail
+compute,rover,Active cooler,Raspberry Pi,Raspberry Pi Active Cooler,1,proposed,5.00,5.00,Official 30mm fan assembly for Pi 5
+compute,rover,Camera,Raspberry Pi,Raspberry Pi Camera Module 3,1,proposed,30.00,30.00,CSI-2 ribbon to CAM port; wide lens preferred for mast
+compute,rover,Storage,Samsung,Samsung EVO Select 64GB microSDHC,1,proposed,10.00,10.00,Raspberry Pi OS 64-bit image; evidence offload via artifact store
+chassis,rover,Robot chassis kit,Freenove or equivalent,4WD metal smart car kit w/ TT gearmotors + quadrature encoders,1,proposed,55.00,55.00,CONFIRM exact kit at procurement; measure stall current before driver signoff
+motor,rover,Motor driver,Toshiba (SparkFun/Adafruit),TB6612FNG,2,proposed,4.00,8.00,One chip per side (2 channels each = 4 motor channels); VM 4.5-13.5V
+motor,rover,Motor wiring harness,kit included,chassis motor leads + encoder cables,1,proposed,0.00,0.00,Verify encoder channels populated on purchased kit
+control,rover,Motor controller MCU,Espressif,"ESP32-DevKitC V4 (DOIT, ESP32-WROOM-32)",1,proposed,8.00,8.00,USB-UART to Pi; PCNT for encoders; see wiring-diagram.md pin budget
+sensing,rover,ToF distance sensor,STMicroelectronics,VL53L1X,2,proposed,15.00,30.00,XSHUT-managed I2C; front obstacle override + rear backup
+sensing,rover,AprilTag set,April Robotics,36h11 tag set (printed),1,owned,0.00,0.00,Printed ~80mm tags at surveyed waypoints; no purchase needed
+actuation,rover,Pan-tilt servos,FEETECH/MG90S class,MG90S metal gear servo,2,proposed,8.00,16.00,Dedicated 6V rail; signal from Pi GPIO PWM (verify Pi5 mapping)
+lighting,rover,LED status ring,Adafruit,NeoPixel Ring 16 - 5050 RGB,1,proposed,10.00,10.00,Status indication; 3.3V data w/ 470R series resistor OK for short run
+safety,rover,Emergency stop button,Omron,A22E-M-01,1,proposed,25.00,25.00,Maintained pushbutton; REQUIRE 1NO+1NC contact set - verify at purchase
+safety,rover,Emergency stop mounting,local fabrication,22mm panel mount bezel,1,proposed,3.00,3.00,Must be reachable without tools during drive tests
+power,rover,Battery pack,Turnigy/Tattu,2S LiPo 2200mAh 25C w/ protection board + XT60,1,proposed,30.00,30.00,7.4V nominal (6.0-8.4V); protected pack mandatory
+power,rover,Pi 5V regulator,Pololu,D24V50F5 (5V/5A buck),1,proposed,15.00,15.00,7.4-36V in -> regulated 5V/5A out to Pi USB-C
+power,rover,Servo 6V regulator,UBEC class,UBEC 6V/3A switching BEC,1,proposed,8.00,8.00,Confirm exact model at procurement; powers pan-tilt only
+power,rover,Fusing,standard,"ATO fuse holder + ATO blade fuses (5A Pi rail, 7.5A motor rail)",1,proposed,6.00,6.00,"Motor fuse sized AFTER stall-current measurement"
+power,rover,Wiring/misc,standard,"18-22AWG silicone wire, XT60 pigtails, heat shrink, perfboard, dupont jumpers",1,proposed,12.00,12.00,Color-code rails; strain-relief all connectors
+puck-a,sensors,Sensor puck A MCU,Espressif,ESP32-S3-DevKitC-1 (N8R2 or N16R8),1,proposed,12.00,12.00,2.4GHz Wi-Fi scan + status LED; confirm flash/PSRAM variant GPIO limits
+puck-b,sensors,Sensor puck B MCU,Espressif,ESP32-DevKitC V4 (DOIT),1,proposed,8.00,8.00,Reed switch input + status LED
+puck-c,sensors,Sensor puck C MCU,Espressif,ESP32-DevKitC V4 (DOIT),1,proposed,8.00,8.00,BLE observer for enrolled lab beacons only
+puck-b,sensors,Cabinet reed switch,generic,SPST-NO magnetic reed switch (e.g. Meder KSK-1A35 class),1,proposed,2.00,2.00,Magnet on cabinet door; debounce in firmware
+puck-a,sensors,Status LED,standard,5mm diffused LED + 330R resistor,1,proposed,1.00,1.00,GPIO-driven state indication
+puck-b,sensors,Status LED,standard,5mm diffused LED + 330R resistor,1,proposed,1.00,1.00,GPIO-driven state indication
+puck-c,sensors,Status LED,standard,5mm diffused LED + 330R resistor,1,proposed,1.00,1.00,GPIO-driven state indication
+puck-a,sensors,Enclosure,fabricated,ABS project box ~80x50x30mm,1,proposed,4.00,4.00,Ventilation slot; USB-C access
+puck-b,sensors,Enclosure,fabricated,ABS project box ~80x50x30mm,1,proposed,4.00,4.00,Cabinet-mount orientation; magnet pocket
+puck-c,sensors,Enclosure,fabricated,ABS project box ~80x50x30mm,1,proposed,4.00,4.00,USB-C access
+pucks,sensors,Power,standard,USB 5V powered hub or 5V/2A adapters per puck,3,proposed,0.00,0.00,Each puck ~100-300mA peak during scan; do NOT power from Pi
+lab,lab,Authorized lab AP,owned inventory,existing owned AP #1 (SSID SENTINEL-CORP),1,owned,0.00,0.00,Authorized reference network
+lab,lab,Unknown test AP,owned inventory,"existing owned AP #2 (same SSID, different BSSID)",1,owned,0.00,0.00,"Demo fixture; never third-party gear"
+lab,lab,Lab endpoint,owned inventory,Linux test endpoint VM or spare laptop,1,owned,0.00,0.00,Containment target; fully compromisable by design
+lab,lab,Managed switch/firewall,GL.iNet or equivalent,GL.iNet Flint 2 (GL-MT6000) or pfSense appliance,1,proposed,90.00,90.00,Allowlisted lab isolation target for ACT epic
+lab,lab,Cabinet mockup,fabricated,owned equipment cabinet + door + magnet,1,owned,0.00,0.00,Reed switch mounting points surveyed
+lab,lab,Management host,owned inventory,independent laptop/server outside lab LAN,1,owned,0.00,0.00,Winstead command plane; never on compromised LAN
+rf-stretch,rf,SDR receiver,Nooelec/RTL-SDR Blog,RTL-SDR Blog V4,1,proposed,35.00,35.00,~500kHz-1.75GHz ONLY - cannot receive 2.4GHz Wi-Fi; see docs/03
+rf-stretch,rf,SDR antenna,generic,SMA whip antenna 433MHz/915MHz tuned,1,proposed,15.00,15.00,Matched to authorized ISM test emitter band
+rf-stretch,rf,ISM test emitter,generic,433MHz EV1527 keyfob/remote pair (authorized fixture),1,proposed,10.00,10.00,Controlled signal for true IQ waterfall demo
