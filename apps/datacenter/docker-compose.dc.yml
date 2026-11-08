@@ -1,0 +1,65 @@
+# Virtual data-center services (#101). Internal-only network, no
+# published ports, resource-limited, synthetic data only.
+# Usage: docker compose -f apps/datacenter/docker-compose.dc.yml up -d
+name: sentinel-dc
+
+networks:
+  dc-internal:
+    internal: true   # no outbound internet
+
+services:
+  vpi-compute-01:
+    build:
+      context: ../..
+      dockerfile: apps/datacenter/services/Dockerfile
+    environment:
+      NODE_ID: vpi-compute-01
+      PORT: "8080"
+      BIND: 0.0.0.0
+    networks: [dc-internal]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+    restart: unless-stopped
+
+  vpi-network-01:
+    build:
+      context: ../..
+      dockerfile: apps/datacenter/services/Dockerfile
+    environment:
+      NODE_ID: vpi-network-01
+      PORT: "8080"
+      BIND: 0.0.0.0
+    networks: [dc-internal]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+    restart: unless-stopped
+
+  vpi-sensor-01:
+    build:
+      context: ../..
+      dockerfile: apps/datacenter/services/Dockerfile
+    environment:
+      NODE_ID: vpi-sensor-01
+      PORT: "8080"
+      BIND: 0.0.0.0
+    networks: [dc-internal]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+    restart: unless-stopped
+
+  vpi-mgmt-01:
+    build:
+      context: ../..
+      dockerfile: apps/datacenter/services/Dockerfile
+    environment:
+      NODE_ID: vpi-mgmt-01
+      PORT: "8080"
+      BIND: 0.0.0.0
+    networks: [dc-internal]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+    restart: unless-stopped
