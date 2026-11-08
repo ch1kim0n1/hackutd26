@@ -13,12 +13,16 @@ class PuckBase:
     puck_type: str = ""
 
     def __init__(self, device_id: str, zone_id: str, secret: bytes,
-                 inventory: Inventory, clock: Callable[[], float] = time.time):
+                 inventory: Inventory, clock: Callable[[], float] = time.time,
+                 transport=None):
         self.device_id = device_id
         self.zone_id = zone_id
         self.secret = secret
         self.inventory = inventory
         self.clock = clock
+        # Optional Transport (see transport.py) — ConsoleTransport for bench,
+        # MqttTransport for the live Sentinel Hive uplink.
+        self.transport = transport
         self.seq = 0
         self.health = HealthStatus.OK
         self._health_note = ""
@@ -39,6 +43,13 @@ class PuckBase:
         )
         obs.signature = sign(self.secret, obs)
         self.events.append(obs)
+        if self.transport is not None:
+            try:
+                self.transport.publish(obs)
+            except Exception:
+                # telemetry loss must not crash the sensing loop; the
+                # gateway dedupes/rejects replays server-side anyway
+                pass
         return obs
 
     def health_event(self, status: HealthStatus, note: str = "") -> Observation:

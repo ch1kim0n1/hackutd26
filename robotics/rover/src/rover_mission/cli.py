@@ -102,14 +102,28 @@ def cmd_simulate_patrols(args) -> int:
 
 
 def _build_service(args, evidence_dir=None):
+    """Build RoverService on simulated or real ESP32 link.
+
+    args.link: 'sim' (default) | 'esp32'. esp32 requires --port and
+    pyserial. Real link uses wall clock — no acceleration."""
+    import os as _os
     routes = RouteMap(_default_routes_path())
-    link = SimulatedLink(tick_s=0.1)
-    link.connect()
-    secret = __import__("os").environ.get("ROVER_MISSION_SECRET", "").encode()
+    secret = _os.environ.get("ROVER_MISSION_SECRET", "").encode()
     if not secret:
         print("ROVER_MISSION_SECRET not set", file=sys.stderr)
         return None, None, None
-    clock = _SimClock(0.1)
+    use_real = getattr(args, "link", "sim") == "esp32"
+    if use_real:
+        from .motor_link import Esp32SerialLink
+        link = Esp32SerialLink(getattr(args, "port", "") or "/dev/ttyUSB0")
+        if not link.connect():
+            print("serial link connect failed", file=sys.stderr)
+            return None, None, None
+        clock = time.time
+    else:
+        link = SimulatedLink(tick_s=0.1)
+        link.connect()
+        clock = _SimClock(0.1)
     svc = RoverService(
         routes, link,
         publisher=ConsolePublisher(sys.stdout),
@@ -123,7 +137,10 @@ def _build_service(args, evidence_dir=None):
 def _drive(svc, link, clock, max_steps):
     steps = 0
     while (svc.active is not None or svc.queue_depth > 0) and steps < max_steps:
-        clock.advance()
+        if hasattr(clock, "advance"):
+            clock.advance()
+        else:
+            time.sleep(0.05)  # real link: real time between ticks
         svc.tick()
         link.pump()
         steps += 1
@@ -225,6 +242,10 @@ def main(argv=None) -> int:
     rp.add_argument("file")
     rp.add_argument("--evidence-dir", default="var/evidence")
     rp.add_argument("--max-steps", type=int, default=20000)
+    rp.add_argument("--link", choices=["sim", "esp32"], default="sim",
+                    help="motor link: sim (default) or real ESP32 serial")
+    rp.add_argument("--port", default="/dev/ttyUSB0",
+                    help="serial port for --link esp32")
     rp.set_defaults(fn=cmd_run_mission)
 
     wp = sub.add_parser("watch-missions",
@@ -235,6 +256,10 @@ def main(argv=None) -> int:
     wp.add_argument("--poll-s", type=float, default=1.0)
     wp.add_argument("--max-missions", type=int, default=0,
                     help="0 = run forever")
+    wp.add_argument("--link", choices=["sim", "esp32"], default="sim",
+                    help="motor link: sim (default) or real ESP32 serial")
+    wp.add_argument("--port", default="/dev/ttyUSB0",
+                    help="serial port for --link esp32")
     wp.set_defaults(fn=cmd_watch_missions)
 
     vp = sub.add_parser("validate", help="validate a mission file")

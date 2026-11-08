@@ -13,3 +13,9 @@ from .puck_a import WifiPuck  # noqa: F401
 from .puck_b import CabinetPuck  # noqa: F401
 from .puck_c import BlePuck  # noqa: F401
 from .puck_base import PuckBase  # noqa: F401
+from .transport import (  # noqa: F401
+    ConsoleTransport,
+    MqttTransport,
+    Transport,
+    transport_from_env,
+)

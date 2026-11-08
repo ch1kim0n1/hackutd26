@@ -257,3 +257,37 @@ def test_collector_stale_and_offline_visibility(clock):
     c.refresh_health()
     assert c.devices["puck-a-01"].status == HealthStatus.OFFLINE
     assert c.devices["puck-b-01"].status == HealthStatus.OFFLINE  # never seen
+
+
+def test_transport_receives_signed_obs(clock):
+    """emit() -> transport.publish with signed canonical dict."""
+    import io
+    stream = io.StringIO()
+    from puck_core.transport import ConsoleTransport
+    p = CabinetPuck("puck-b-01", "cabinet-01", SECRET, make_inventory(),
+                    clock=clock, transport=ConsoleTransport(stream))
+    p.health_event(HealthStatus.OK)
+    line = stream.getvalue().strip()
+    import json
+    got = json.loads(line)
+    assert got["device_id"] == "puck-b-01"
+    assert got["kind"] == "device_health"
+    assert got["signature"]  # signed before publish
+    assert verify(SECRET, Observation.from_dict(got))
+
+
+def test_transport_failure_does_not_crash(clock):
+    class Boom:
+        def publish(self, obs):
+            raise RuntimeError("no broker")
+    p = CabinetPuck("puck-b-01", "cabinet-01", SECRET, make_inventory(),
+                    clock=clock, transport=Boom())
+    obs = p.health_event(HealthStatus.OK)  # must not raise
+    assert obs.signature
+
+
+def test_transport_from_env_default_console(monkeypatch):
+    from puck_core.transport import transport_from_env, ConsoleTransport
+    monkeypatch.delenv("MQTT_HOST", raising=False)
+    t = transport_from_env("puck-a-01")
+    assert isinstance(t, ConsoleTransport)
