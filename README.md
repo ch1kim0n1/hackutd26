@@ -4,8 +4,13 @@
 
 A mobile security rover and wireless/physical sensor network observe an **owned mock enterprise office**. A Nemotron agent performs real, auditable multi-step investigation; SpacetimeDB synchronizes device and incident state; an **independently secured** Winstead incident command center lets authorized operators document scope, communicate, approve limited lab response, and verify results.
 
-> **Current state: design documentation only.** This repo is the main engineering source of truth; implementation, security compliance and measured performance are not yet verified.
+> **Frontend state:** Phantom Command is a complete, tested local simulation. Live hardware, model inference, production authorization and sponsor compliance remain separate verification work.
 
+## Phantom Command
+
+The [command center](apps/dashboard/twin/README.md) implements six connected workspaces: Command Overview, Digital Twin, Network Intelligence, Incident Center, Rover Operations and Nemotron Intelligence. A deterministic agent automatically correlates observations, creates incidents, dispatches policy-controlled rover inspections, collects synthetic evidence and publishes findings. It includes 3D occupancy geometry, 32 shared device records, scenario controls, human approval for disruptive mock actions, independent E-stop and typed future ROS 2/Kismet/Nemotron adapters.
+
+Start with [AGENT_HANDOFF.md](AGENT_HANDOFF.md) and the [demo walkthrough](apps/dashboard/twin/README.md). The component laboratory remains at `/lab.html`, and the original twin at `/legacy.html`. Every frontend action is explicitly simulated.
 
 ## Engineering execution tracker
 
