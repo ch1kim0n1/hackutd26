@@ -9,6 +9,28 @@ const VIEWS = [
   'opsAlertFeed', 'auditFeed', 'healthFeed', 'rfFeed',
 ] as const
 
+type TableObserver = {
+  onInsert(cb: () => void): void
+  onDelete(cb: () => void): void
+  onUpdate?(cb: () => void): void
+  removeOnInsert(cb: () => void): void
+  removeOnDelete(cb: () => void): void
+  removeOnUpdate?(cb: () => void): void
+}
+
+/** Listen for changes after the initial subscription, and detach on stop. */
+export function observeTables(tables: Record<string, TableObserver>, changed: () => void): () => void {
+  const observed = VIEWS.map(name => tables[name]).filter(Boolean)
+  for (const table of observed) {
+    table.onInsert(changed); table.onDelete(changed); table.onUpdate?.(changed)
+  }
+  return () => {
+    for (const table of observed) {
+      table.removeOnInsert(changed); table.removeOnDelete(changed); table.removeOnUpdate?.(changed)
+    }
+  }
+}
+
 export interface SpaceTimeHandlers {
   onRows(rows: LiveRows): void
   onStatus(status: 'connecting' | 'online' | 'error', detail: string): void
@@ -22,6 +44,7 @@ export class SpaceTimeTransport {
   private conn: DbConnection | null = null
   private timer: ReturnType<typeof setTimeout> | null = null
   private stopped = false
+  private unobserve: (() => void) | null = null
 
   constructor(
     private uri: string,
@@ -44,6 +67,7 @@ export class SpaceTimeTransport {
       .onDisconnect(() => handlers.onStatus('connecting', 'SpacetimeDB disconnected — reconnecting'))
       .build()
     this.conn = conn
+    this.unobserve = observeTables(conn.db as unknown as Record<string, TableObserver>, () => this.emit(conn, handlers))
     conn.subscriptionBuilder()
       .onApplied(() => this.emit(conn, handlers))
       .onError((ctx) => handlers.onStatus('error', `subscription error: ${JSON.stringify(ctx)}`))
@@ -79,6 +103,7 @@ export class SpaceTimeTransport {
   stop(): void {
     this.stopped = true
     if (this.timer) clearTimeout(this.timer)
+    this.unobserve?.(); this.unobserve = null
     try { this.conn?.disconnect() } catch { /* ignore */ }
     this.conn = null
   }

@@ -7,8 +7,8 @@ export type ObservationKind = 'unknown' | 'impersonation' | 'tamper' | 'correlat
 export type Severity = 'low' | 'medium' | 'high' | 'critical'
 export type DeviceKind = 'server' | 'ap' | 'sensor' | 'rover' | 'wifi' | 'ble'
 export interface Zone { id: string; name: string; code: string; bounds: [number, number, number, number]; position: Point; color: string }
-export interface Device { id: string; name: string; kind: DeviceKind; zoneId: string; position: Point; status: 'healthy' | 'watch' | 'threat'; protocol: 'Ethernet' | 'Wi-Fi' | 'BLE' | 'System'; address: string; vendor: string; risk: number; rssi: number; lastSeen: number; signalHistory: number[] }
-export interface Observation { id: string; kind: ObservationKind; zoneId: string; deviceIds: string[]; at: number; detail: string }
+export interface Device { id: string; name: string; kind: DeviceKind; zoneId: string; position: Point; status: 'healthy' | 'watch' | 'threat'; statusKnown?: boolean; protocol: 'Ethernet' | 'Wi-Fi' | 'BLE' | 'System'; address: string; vendor: string; risk: number; rssi: number; lastSeen: number; signalHistory: number[] }
+export interface Observation { id: string; kind: ObservationKind; zoneId: string; deviceIds: string[]; at: number; detail: string; observedAtUtc?: string }
 export interface TimelineEntry { id: string; at: number; title: string; detail: string; kind: 'observation' | 'analysis' | 'mission' | 'evidence' | 'resolution' | 'operator' }
 export interface Incident { id: string; title: string; severity: Severity; status: 'detected' | 'investigating' | 'collecting' | 'resolved'; zoneId: string; deviceIds: string[]; observationIds: string[]; evidenceIds: string[]; findingIds: string[]; timeline: TimelineEntry[]; createdAt: number; updatedAt: number }
 export interface Evidence { id: string; incidentId: string; type: 'rf' | 'camera' | 'lidar' | 'policy'; at: number; summary: string }

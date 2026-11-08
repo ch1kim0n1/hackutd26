@@ -18,3 +18,13 @@ Quick start
 5. Patrol racks:  fill brain.waypoints with map coordinates read off out/map.png after an exploration run
 
 Install packages through your safe-package-install.sh pipeline.
+
+Mission service (inspect_cabinet, used by robotics/rover HttpHardwareTransport)
+- mission_service.py  POST /missions, GET /missions/<id>, POST /missions/<id>/abort, POST /stop; loopback only
+- mission.example.json  cabinet -> AprilTag id -> the one Pi it may probe; calibration knobs
+- Start (camera service must be running on 127.0.0.1:18080):
+    ROVER_AUTONOMY_TOKEN=<32+ chars> python3 mission_service.py --config ~/.config/blindspot-mission/mission.json
+- Mac: ssh -L 18090:127.0.0.1:18090 david@<rover>, then
+    ROVER_INSPECTOR=hardware ROVER_HARDWARE_TRANSPORT=http ROVER_AUTONOMY_URL=http://127.0.0.1:18090/missions ROVER_AUTONOMY_TOKEN=... ROVER_AUTONOMY_TIMEOUT_S=30
+- motion_enabled=false: camera sweep, photo and Pi probe only, wheels never turn. Enable only after a wheels-up test.
+- Tests: python3 -m pytest -q test_mission_service.py

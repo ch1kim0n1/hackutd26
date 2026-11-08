@@ -18,6 +18,7 @@ from rover_mission.hw_adapter import (
     HardwareCabinetInspector,
     HardwareTimeout,
     HardwareUnavailable,
+    HttpHardwareTransport,
     SimulatedHardwareTransport,
     UnconfiguredHardwareTransport,
     build_cabinet_command,
@@ -35,6 +36,45 @@ from rover_mission.localization import NoopDetector
 from rover_mission.telemetry import ConsolePublisher
 
 from conftest import DEVICE, SECRET, run_until_done, signed
+
+
+def test_async_hardware_waits_for_correlated_inspection_report():
+    calls = []
+    responses = iter([
+        (202, {'mission_id': 'm1', 'state': 'accepted'}),
+        (200, {'mission_id': 'm1', 'cabinet_id': 'rack-02', 'state': 'completed',
+               'report': {'mission_id': 'm1', 'cabinet_id': 'rack-02', 'status': 'ok'}}),
+    ])
+    def opener(req, timeout):
+        calls.append((req.get_method(), req.full_url, req.get_header('Authorization')))
+        status, result = next(responses)
+        return status, json.dumps(result).encode()
+    transport = HttpHardwareTransport('http://127.0.0.1:8090/v1/missions', token='test', opener=opener)
+    assert transport.send({'mission_id': 'm1', 'cabinet_id': 'rack-02'})['status'] == 'ok'
+    assert calls == [('POST', 'http://127.0.0.1:8090/v1/missions', 'Bearer test'),
+                     ('GET', 'http://127.0.0.1:8090/v1/missions/m1', 'Bearer test')]
+
+
+def test_async_hardware_does_not_trust_completion_without_report():
+    def opener(req, timeout):
+        return 200, json.dumps({'mission_id': 'm1', 'cabinet_id': 'rack-02', 'state': 'completed'}).encode()
+    transport = HttpHardwareTransport('http://127.0.0.1:8090/v1/missions', opener=opener)
+    assert transport.send({'mission_id': 'm1'})['status'] == 'error'
+
+
+def test_async_hardware_aborts_when_polling_fails():
+    calls = []
+    def opener(req, timeout):
+        calls.append(req.get_method() + ' ' + req.full_url)
+        if len(calls) == 1:
+            return 202, b'{"mission_id":"m1","state":"accepted"}'
+        if len(calls) == 2:
+            raise OSError('disconnected')
+        return 200, b'{}'
+    transport = HttpHardwareTransport('http://127.0.0.1:8090/v1/missions', opener=opener)
+    with pytest.raises(HardwareTimeout):
+        transport.send({'mission_id': 'm1'})
+    assert calls[-1].endswith('/v1/missions/m1/abort')
 
 TARGETS_JSON = {
     "device_id": DEVICE,
@@ -230,15 +270,14 @@ def test_unknown_status_is_error(registry, clock):
     assert "unknown_status" in report.status_detail
 
 
-def test_duplicate_mission_id_suppressed(registry, clock):
-    """Hardware-side dedup: a 'duplicate' response means mission_id was
-    already executed — recorded as ok with an explicit detail."""
+def test_duplicate_ack_is_not_reported_as_success(registry, clock):
+    """A duplicate may still be running or failed; it is not a result."""
     transport = SimulatedHardwareTransport(
         scenarios={"cab-test-01": {"status": "duplicate"}}, clock=clock)
     insp = make_hw_inspector(registry, clock, transport=transport)
     report = insp.inspect(target_for(registry), ctx_for())
-    assert report.status == "ok"
-    assert report.status_detail == "duplicate_mission_suppressed"
+    assert report.status == "error"
+    assert report.status_detail == "duplicate_result_unverified"
 
 
 def test_ok_claim_with_failed_checks_downgraded(registry, clock):

@@ -135,6 +135,11 @@ const KEYS = { 'puck-a-01': SECRET };
   check('unsigned on keyed device rejected', !r.ok);
 }
 {
+  const forged = { ...roverEvent, device_id: 'puck-a-01' };
+  const r = normalizeTelemetry(enc(forged), 'puck-a-01', KEYS);
+  check('keyed device cannot bypass signatures via legacy rover format', !r.ok);
+}
+{
   // unkeyed device unaffected
   const r = normalizeTelemetry(enc({ ...canonical, device_id: 'puck-b-01' }), 'puck-b-01', KEYS);
   check('unkeyed device still accepted', r.ok);

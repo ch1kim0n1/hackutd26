@@ -88,3 +88,21 @@ Configuration (`.env.local`, see `.env.example`):
 Live entities carry `LIVE`/`REPLAY` provenance prefixes in generated detail text — never conflated with DEMO. Entity collections are rebuilt wholesale from subscribed views on every update, so reconnect/resync/refresh cannot duplicate rows; the mode choice persists in `localStorage` (`phantom-command-mode`).
 
 Unimplemented surfaces (later issues): live command path (approvals/missions/waypoints go through the backend outbox, not this UI), per-device RF telemetry, rover pose telemetry, API-universe incidents (separate store from SpacetimeDB incidents), Nemotron inference (#111).
+
+## Optional physical rover camera
+
+The Rover Operations camera panel can display the rover camera service over an SSH tunnel while the rest of the demo stays simulated. With an authenticated SSH connection to the rover, run this from the repository root in a dedicated terminal (replace `david@ROVER_IP` and the remote path as needed):
+
+```sh
+ssh -L 127.0.0.1:18080:127.0.0.1:18080 david@ROVER_IP \
+  'python3 -u - 18080 http://127.0.0.1:5188 /home/david/camera_service.py' \
+  < deploy/scripts/rover-camera-loopback.py
+```
+
+This launches the rover's existing service on loopback and restricts CORS to the given dashboard origin. In another terminal, start Vite using that same origin:
+
+```sh
+VITE_ROVER_CAMERA_URL=http://127.0.0.1:18080 npm run dev -- --port 5188 --strictPort
+```
+
+The setting accepts only `http://127.0.0.1:<port>` or `http://localhost:<port>`. The service must provide `/health` with a recent `timestamp_utc` and `frame_age_s`, plus `/stream.mjpg`; the rover's existing camera service supports these endpoints. The panel reports stale or unavailable feeds instead of silently switching to simulated video. Camera access does not connect mission dispatch, LiDAR mapping, emergency stop, or other rover controls. Never expose the unauthenticated camera service to the network; use the SSH tunnel.

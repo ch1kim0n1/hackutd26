@@ -398,13 +398,16 @@ def create_app(seed: bool = True) -> FastAPI:
                                      "an agent machine principal")
 
     @app.post("/internal/events", status_code=202)
-    def push_event(body: InvestigationEventIn, uid: str = Depends(actor)):
+    def push_event(body: InvestigationEventIn, background_tasks: BackgroundTasks,
+                   uid: str = Depends(actor)):
         """Machine principals (gateway/backend) push observations and
         findings; accepted events trigger an investigation on pump."""
         _require_agent(uid)
         from .orchestrator import InvestigationEvent
         ev = InvestigationEvent.from_payload(body.model_dump())
         status = state.orchestrator.enqueue(ev)
+        if status == "accepted":
+            background_tasks.add_task(state.orchestrator.pump)
         return _env({"status": status, "event_id": ev.event_id,
                      "kind": ev.kind, "dedupe_key": list(ev.dedupe_key)})
 

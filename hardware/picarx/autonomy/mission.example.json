@@ -1,0 +1,11 @@
+{
+  "motion_enabled": false,
+  "camera_url": "http://127.0.0.1:18080",
+  "evidence_dir": "~/blindspot-evidence",
+  "pan_sign": 1,
+  "steer_trim_deg": 0,
+  "cabinets": {
+    "rack-01": {"tag_id": 1, "device_id": "pi-01", "host": "10.192.59.175", "tcp_ports": [22]},
+    "rack-02": {"tag_id": 2, "device_id": "pi-02", "host": "10.192.59.128", "tcp_ports": [22]}
+  }
+}
