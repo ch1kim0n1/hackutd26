@@ -6,6 +6,7 @@ from defense_gateway import (
     FlowPolicy,
     FlowRule,
     FlowTuple,
+    Provenance,
     SimulatedEnforcementPoint,
 )
 
@@ -24,7 +25,8 @@ def policy() -> FlowPolicy:
 def decide(service, now=1_700_000_000):
     f = FlowTuple(flow_id=f"flow-{service}",
                   src=FlowEndpoint("lab-client-01", "https"),
-                  dst=FlowEndpoint("dc-pi-01", service))
+                  dst=FlowEndpoint("dc-pi-01", service),
+                  provenance=Provenance.DEMO)
     return DecisionEngine(policy()).evaluate(f, trace_id="t-enf", now=now)
 
 

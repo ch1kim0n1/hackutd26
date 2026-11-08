@@ -130,12 +130,13 @@ class FlowEndpoint:
 @dataclass(frozen=True)
 class FlowTuple:
     """The flow identity a decision is made about. `provenance` records
-    where the flow metadata came from — required, never defaulted
-    silently, so simulated flows stay honestly labeled."""
+    where the flow metadata came from — a required field (matching the
+    frozen SourceEnvelope contract), so simulated flows stay honestly
+    labeled and callers must choose DEMO/REPLAY/LIVE explicitly."""
     flow_id: str
     src: FlowEndpoint
     dst: FlowEndpoint
-    provenance: Provenance = Provenance.DEMO
+    provenance: Provenance
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "flow_id", _require_id(self.flow_id, "flow_id"))
@@ -167,9 +168,9 @@ class FlowTuple:
 @dataclass(frozen=True)
 class FlowMatch:
     """Rule match criteria. Every specified (non-None) field must equal
-    the flow's corresponding field; None is a wildcard. All-None matches
-    every flow — legal but almost always a policy bug, so the engine
-    warns via reason text only (kept permissive, ordering is explicit)."""
+    the flow's corresponding field; None is a wildcard. An all-None
+    match matches every flow — permitted (e.g. a documented catch-all
+    rule) since rule order is explicit and first-match-wins."""
     src_node: str | None = None
     src_service: str | None = None
     dst_node: str | None = None

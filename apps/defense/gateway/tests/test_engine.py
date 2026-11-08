@@ -92,9 +92,9 @@ def test_redirect_rule_match():
 
 
 def test_first_match_wins():
-    # bad-actor-01 -> dc-pi-02/http matches BOTH allow-lab-http? no —
-    # src_node differs. Craft overlap: allow rule on dst_service=http
-    # precedes a block rule on src_node; block must lose.
+    # Overlapping rules: allow on dst_service=http is declared before
+    # block on src_node=bad-actor-01; the flow matches both, so the
+    # earlier rule must win.
     pol = FlowPolicy(policy_id="pol-order", rules=[
         FlowRule("r-allow", FlowMatch(dst_service="http"),
                  FlowDecisionKind.ALLOW),
@@ -179,7 +179,8 @@ def test_malformed_flow_id_rejected(bad_id):
 
 def test_non_endpoint_src_rejected():
     with pytest.raises(FlowValidationError):
-        FlowTuple(flow_id="f1", src="lab-client-01", dst=PROTECTED)
+        FlowTuple(flow_id="f1", src="lab-client-01", dst=PROTECTED,
+                  provenance=Provenance.DEMO)
 
 
 def test_bad_service_rejected():
