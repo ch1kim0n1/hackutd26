@@ -1,0 +1,6 @@
+scapy
+luma.oled
+pyyaml
+requests
+adafruit-blinka
+adafruit-circuitpython-neopixel-spi

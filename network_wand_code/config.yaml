@@ -1,0 +1,29 @@
+# Network Wand settings
+wand_id: wand-01
+backend_url: http://192.168.8.50:5000     # laptop running backend/app.py (fixed IP on the demo router)
+monitor_iface: wlan1                       # the Archer T4U Plus
+home_channel: 6                            # your demo router's channel
+scan_channels: [1, 6, 11, 36, 40, 44, 48, 149, 153, 157, 161]
+scan_dwell_s: 0.4                          # time on each channel while scanning
+ap_timeout_s: 15                           # forget APs not heard for this long
+poll_seconds: 2                            # backend poll interval
+long_press_s: 0.8
+deauth_alert: 10                           # deauth/disassoc frames in 3 s that flash the LEDs red
+
+pins:                                      # BCM numbering
+  button1: 17                              # physical pin 11
+  button2: 27                              # physical pin 13
+  buzzer: 22                               # physical pin 15 (active buzzer via NPN transistor)
+
+leds:                                      # WS2812B light pipe on SPI MOSI = GPIO10 (pin 19)
+  count: 10
+  brightness: 0.3
+
+oled:
+  i2c_port: 1                              # SDA GPIO2 (pin 3), SCL GPIO3 (pin 5)
+  address: 0x3C
+
+hunt:
+  rssi_far: -90                            # dBm treated as "far" (slow clicks, blue)
+  rssi_near: -30                           # dBm treated as "right on top of it" (fast clicks, green)
+  smoothing: 0.3                           # 0..1, higher = faster but jumpier RSSI

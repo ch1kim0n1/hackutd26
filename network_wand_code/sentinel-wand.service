@@ -1,0 +1,16 @@
+[Unit]
+Description=Sentinel Rover - Network Wand
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/wand
+ExecStartPre=/home/pi/wand/monmode.sh wlan1 6
+ExecStart=/home/pi/wand/.venv/bin/python /home/pi/wand/wand.py
+Restart=on-failure
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

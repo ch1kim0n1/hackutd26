@@ -1,0 +1,45 @@
+# Rover ground autonomy settings
+loop_hz: 10
+save_every_s: 3
+backend_url: ""                     # e.g. http://192.168.8.50:5000 to POST pose/mode to the dashboard
+
+lidar:
+  mode: serial                      # serial (LD06-style packets) | pipe (vendor SDK prints "deg mm" lines)
+  port: /dev/ttyUSB0
+  baud: 230400
+  pipe_cmd: "/home/pi/ms200_sdk/build/print_points"   # only used in pipe mode
+  mount_offset_deg: 0               # rotate so 0 deg = straight ahead (check with lidar_check below)
+  clockwise: true                   # sensor angles increase clockwise (MS200/LD06 do)
+
+map:
+  size_m: 20                        # square map, robot starts in the middle
+  res_m: 0.05
+
+drive:                              # TB6612FNG pins (BCM) - match the build doc
+  track_m: 0.14                     # distance between left and right wheels
+  max_wheel_speed: 0.45             # m/s at full PWM - measure on your car
+  pwm_deadband: 0.18                # minimum PWM that actually moves a wheel
+  odom_scale_v: 1.0                 # calibrate: real distance / commanded distance
+  odom_scale_w: 1.0
+  invert_left: false
+  invert_right: false
+  pins: {pwma: 12, ain1: 5, ain2: 6, pwmb: 13, bin1: 19, bin2: 26, stby: 21}
+
+brain:
+  robot_radius: 0.13                # half the car's widest dimension
+  v_max: 0.22                       # m/s cruise
+  w_max: 1.6                        # rad/s turn
+  stop_dist: 0.22                   # never drive forward with less clearance than this
+  wall_dist: 0.35                   # wall-follow distance (right-hand wall)
+  wall_follow_s: 90                 # max time outlining the room
+  loop_min_m: 6                     # travel before a return-to-start counts as a closed loop
+  lookahead: 0.30
+  goal_tol: 0.20
+  replan_s: 2.0
+  bounce_s: 12
+  stuck_window_s: 3.0
+  checkpoint_s: 3.0                 # how long to stop at each rack for the Wi-Fi scan
+  waypoints: []                     # leave empty for Roomba-style coverage, or patrol racks:
+  # waypoints:
+  #   - {name: Rack-01, xy: [0.9, 0.6]}
+  #   - {name: Rack-02, xy: [2.2, 0.6]}
