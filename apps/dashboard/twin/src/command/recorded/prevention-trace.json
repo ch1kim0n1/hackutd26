@@ -1,0 +1,51 @@
+{
+  "schema": "scenario-trace/1",
+  "scenario": "prevention",
+  "title": "Preventive hardening from posture drift",
+  "label": "MOCK",
+  "provenance": "DEMO",
+  "ok": true,
+  "duration_s": 0.0,
+  "agent_summary": "Posture assessment found confirmed drift on vpi-compute-01. Risk ranking promoted it to an incident candidate; a hardening proposal was approved by a commander and verified against the node config.",
+  "uncertainty": "low \u2014 config re-read confirms the fix landed",
+  "steps": [
+    {
+      "step": 1,
+      "evidence_id": "ev-f5ef736b56",
+      "detail": "{\"findings\": 5, \"stage\": \"posture\", \"top_rank\": 1}"
+    },
+    {
+      "step": 2,
+      "evidence_id": "ev-e2d7c9be61",
+      "detail": "{\"id\": \"cand-da23e9e97076\", \"stage\": \"candidate\", \"status\": \"auto_filed\"}"
+    },
+    {
+      "step": 3,
+      "evidence_id": "ev-9bda6a21a9",
+      "detail": "{\"proposal_id\": \"hp-430cd5b807ef\", \"stage\": \"propose\", \"status\": \"ok\"}"
+    },
+    {
+      "step": 4,
+      "evidence_id": "ev-a0e61a8e88",
+      "detail": "{\"msg\": \"approved\", \"ok\": true, \"stage\": \"approve\"}"
+    },
+    {
+      "step": 5,
+      "evidence_id": "ev-ec573350d9",
+      "detail": "{\"msg\": \"verified\", \"ok\": true, \"stage\": \"execute\", \"state\": \"verified\"}"
+    }
+  ],
+  "claims": [
+    {
+      "text": "Posture assessment found confirmed drift on vpi-compute-01. Risk ranking promoted it to an incident candidate; a hardening proposal was approved by a commander and verified against the node config.",
+      "evidence_ids": [
+        "ev-f5ef736b56",
+        "ev-e2d7c9be61",
+        "ev-9bda6a21a9",
+        "ev-a0e61a8e88",
+        "ev-ec573350d9"
+      ]
+    }
+  ],
+  "generated_at": 1794130828.452233
+}
