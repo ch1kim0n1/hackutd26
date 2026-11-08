@@ -341,11 +341,23 @@ class LiveNetworkInspector:
         return target.address
 
 
-def inspector_from_name(name: str, *, allowed_addresses=(), clock=time.time,
-                        scenarios: Optional[Mapping] = None) -> NetworkInspector:
+def inspector_from_name(name: str, *, allowed_addresses=(),
+                        allowed_cabinets=(), clock=time.time,
+                        scenarios: Optional[Mapping] = None,
+                        hardware_transport=None) -> NetworkInspector:
     """Factory for CLI/programmatic wiring. Unknown names fail closed."""
     if name == "sim" or name == "simulated":
         return SimulatedNetworkInspector(scenarios=scenarios, clock=clock)
     if name == "live":
         return LiveNetworkInspector(allowed_addresses, clock=clock)
-    raise ValueError(f"unknown inspector {name!r} (sim|live)")
+    if name in ("hardware", "hw", "hw-cabinet"):
+        from .hw_adapter import (
+            HardwareCabinetInspector,
+            hardware_transport_from_name,
+        )
+        transport = hardware_transport or hardware_transport_from_name(
+            "sim", scenarios=scenarios, clock=clock)
+        return HardwareCabinetInspector(allowed_cabinets, transport,
+                                        clock=clock)
+    raise ValueError(
+        f"unknown inspector {name!r} (sim|live|hardware)")
