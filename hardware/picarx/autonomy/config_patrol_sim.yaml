@@ -1,0 +1,76 @@
+loop_hz: 10
+save_every_s: 3
+backend_url: ''
+lidar:
+  mode: serial
+  port: /dev/ttyUSB0
+  baud: 230400
+  pipe_cmd: /home/pi/ms200_sdk/build/print_points
+  mount_offset_deg: 0
+  clockwise: true
+map:
+  size_m: 20
+  res_m: 0.05
+drive:
+  track_m: 0.14
+  max_wheel_speed: 0.45
+  pwm_deadband: 0.18
+  odom_scale_v: 1.0
+  odom_scale_w: 1.0
+  invert_left: false
+  invert_right: false
+  pins:
+    pwma: 12
+    ain1: 5
+    ain2: 6
+    pwmb: 13
+    bin1: 19
+    bin2: 26
+    stby: 21
+brain:
+  robot_radius: 0.13
+  v_max: 0.22
+  w_max: 1.6
+  stop_dist: 0.22
+  wall_dist: 0.35
+  wall_follow_s: 40
+  loop_min_m: 6
+  lookahead: 0.3
+  goal_tol: 0.2
+  replan_s: 2.0
+  bounce_s: 12
+  stuck_window_s: 3.0
+  checkpoint_s: 3.0
+  waypoints:
+  - name: Rack-01
+    xy:
+    - 0.9
+    - 0.85
+  - name: Rack-02
+    xy:
+    - 2.2
+    - 0.85
+  - name: Rack-03
+    xy:
+    - 3.5
+    - 0.85
+  - name: Rack-04
+    xy:
+    - 4.8
+    - 0.85
+  - name: Rack-08
+    xy:
+    - 4.8
+    - -0.25
+  - name: Rack-07
+    xy:
+    - 3.5
+    - -0.25
+  - name: Rack-06
+    xy:
+    - 2.2
+    - -0.25
+  - name: Rack-05
+    xy:
+    - 0.9
+    - -0.25
