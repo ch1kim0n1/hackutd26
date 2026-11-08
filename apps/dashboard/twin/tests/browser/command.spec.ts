@@ -39,7 +39,7 @@ test('six command workspaces render, share selection, and remain local', async (
   page.on('pageerror', error => errors.push(error.message))
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
   page.on('request', request => { if (/^https?:/.test(request.url()) && new URL(request.url()).hostname !== '127.0.0.1') external.push(request.url()) })
-  await page.goto('/')
+  await page.goto('/#overview')
   await expect(page.getByRole('heading', { name: 'Command overview', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'DEMO', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'DEMO', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -89,7 +89,7 @@ test('six command workspaces render, share selection, and remain local', async (
 
 test('autonomous investigation progresses without an AI prompt; pause and reset are coherent', async ({ page }) => {
   test.setTimeout(60000)
-  await page.goto('/')
+  await page.goto('/#overview')
   await nav(page, 'Incident Center').click()
   await expect(page.getByTestId('incidents-workspace')).toBeVisible()
   await page.getByLabel('Simulation speed').selectOption('8')
@@ -121,7 +121,7 @@ test('autonomous investigation progresses without an AI prompt; pause and reset 
 
 test('disruptive mock actions require operator approval and emergency stop latches motion', async ({ page }) => {
   test.setTimeout(60000)
-  await page.goto('/')
+  await page.goto('/#overview')
   await page.getByLabel('Simulation scenario').selectOption('impersonation')
   await page.getByLabel('Simulation speed').selectOption('8')
   await page.getByRole('button', { name: 'Start simulation', exact: true }).click()
@@ -151,7 +151,7 @@ test('disruptive mock actions require operator approval and emergency stop latch
 test('small desktop and mobile layouts fit, and reduced motion is respected', async ({ page }) => {
   await page.emulateMedia({reducedMotion:'reduce'})
   await page.setViewportSize({width:1024,height:768})
-  await page.goto('/')
+  await page.goto('/#overview')
   await expect(page.locator('.pc-app')).toHaveClass(/pc-reduced-motion/)
   await expect(page.locator('.pc-preview-scene canvas')).toBeVisible()
   await noOverflow(page)
@@ -170,7 +170,7 @@ test('small desktop and mobile layouts fit, and reduced motion is respected', as
 test('spatial picking, cameras, layout editing, manual observations and incident creation work', async ({ page }) => {
   const { PerspectiveCamera, Vector3 } = await import('three')
   await page.emulateMedia({reducedMotion:'reduce'})
-  await page.goto('/')
+  await page.goto('/#overview')
   await page.getByRole('button',{name:'Arrange panels',exact:true}).click()
   const handle = page.getByTestId('command-grid').locator('.react-grid-item').first().locator('.react-resizable-handle')
   const bounds = await handle.boundingBox()

@@ -6,7 +6,8 @@ export function connectWorkspaceHistory(store: StoreApi<CommandStore>, browser: 
   const readLocation = () => {
     const requested = browser.location.hash.slice(1)
     const workspace = WORKSPACES.includes(requested as Workspace) ? requested as Workspace : 'overview'
-    if (browser.location.hash !== `#${workspace}`) browser.history.replaceState(browser.history.state, '', `#${workspace}`)
+    // An empty hash is left alone: on `/` it belongs to the landing page.
+    if (browser.location.hash && browser.location.hash !== `#${workspace}`) browser.history.replaceState(browser.history.state, '', `#${workspace}`)
     store.getState().navigate(workspace)
   }
 
