@@ -93,7 +93,7 @@ function subscribe(conn: DbConnection, views: readonly string[]): Promise<void> 
   return new Promise((resolve, reject) => {
     conn.subscriptionBuilder()
       .onApplied(() => resolve())
-      .onError((_ctx, e) => reject(e))
+      .onError((ctx: any) => reject(ctx?.error ?? ctx))
       .subscribe((tables) =>
         views.map((v) => (tables as Record<string, { build(): unknown }>)[v].build() as never));
   });
@@ -108,7 +108,7 @@ log({ event: 'connected', uri: URI, db: DB });
 // Agent's own SpacetimeDB identity (needed for grantIncidentAccess userId).
 let agentIdentity: AgentIdentity | null = null;
 for (let i = 0; i < 50 && !agentIdentity; i++) {
-  const rows = [...(await agent.db.myAccess.iter()) as any[]];
+  const rows = [...(await agent.db.myAccess.iter())];
   agentIdentity = rows[0]?.userId ?? null;
   if (!agentIdentity) await sleep(200);
 }
@@ -171,21 +171,21 @@ async function incidentContext(incidentId: string): Promise<{
   // title/description/severity. All reads are view-scoped (commander).
   let zoneId = '', deviceId = '', kind = '', ruleId = '', severity = 'medium', description = '';
   try {
-    for (const inc of (await cmd.db.incidentFeed.iter()) as any[]) {
-      if ((inc.id ?? inc.incidentId) !== incidentId) continue;
+    for (const inc of await cmd.db.incidentFeed.iter()) {
+      if (inc.id !== incidentId) continue;
       description = String(inc.description ?? '');
       severity = tag(inc.severity) || 'medium';
       break;
     }
     let obsId: bigint | null = null;
-    for (const a of (await cmd.db.opsAlertFeed.iter()) as any[]) {
+    for (const a of await cmd.db.opsAlertFeed.iter()) {
       if (a.incidentId !== incidentId) continue;
       ruleId = String(a.ruleId ?? '');
       obsId = a.observationIds?.[0] ?? null;
       break;
     }
     if (obsId !== null) {
-      for (const o of (await cmd.db.observationFeed.iter()) as any[]) {
+      for (const o of await cmd.db.observationFeed.iter()) {
         if (o.id !== obsId) continue;
         zoneId = String(o.zoneId ?? '');
         deviceId = String(o.deviceId ?? '');
@@ -269,7 +269,7 @@ const LIVE_MISSION_STATES = new Set(['proposed', 'approved', 'dispatched', 'acce
  * the same inspection. */
 async function existingMission(incidentId: string, zoneId: string, waypoint: string): Promise<string> {
   try {
-    for (const m of (await agent.db.missionFeed.iter()) as any[]) {
+    for (const m of await agent.db.missionFeed.iter()) {
       const st = tag(m.state);
       if (LIVE_MISSION_STATES.has(st) || st === 'completed') {
         if (String(m.incidentId) === incidentId && String(m.zoneId) === zoneId
@@ -353,7 +353,7 @@ async function adoptProposedMissions(): Promise<void> {
   } catch { return; }
   if (pending.size === 0) return;
   try {
-    const missions = [...(await agent.db.missionFeed.iter()) as any[]];
+    const missions = [...(await agent.db.missionFeed.iter())];
     for (const m of missions) {
       const mid = String(m.id);
       if (claimedMissions.has(mid)) continue;
@@ -488,7 +488,7 @@ async function onMissionTerminal(m: any): Promise<void> {
 
 async function trackMissions(): Promise<void> {
   try {
-    const missions = [...(await cmd.db.missionFeed.iter()) as any[]];
+    const missions = [...(await cmd.db.missionFeed.iter())];
     for (const m of missions) {
       const mid = String(m.id);
       const st = tag(m.state);
@@ -512,8 +512,8 @@ async function trackMissions(): Promise<void> {
 
 async function scanIncidents(): Promise<void> {
   try {
-    for (const inc of (await cmd.db.incidentFeed.iter()) as any[]) {
-      const id = String(inc.id ?? inc.incidentId ?? '');
+    for (const inc of await cmd.db.incidentFeed.iter()) {
+      const id = String(inc.id ?? '');
       if (id) await onNewIncident(id);
     }
   } catch (e) {
@@ -549,6 +549,20 @@ async function scanRequests(): Promise<void> {
 }
 
 log({ event: 'bridge_ready', poll_ms: POLL_MS, rover: ROVER_DEVICE });
+
+// Baseline: incidents already in the feed are history — never replay
+// investigations/grants for them. Only incidents created after this
+// point are mirrored to the orchestrator.
+try {
+  for (const inc of await cmd.db.incidentFeed.iter()) {
+    const id = String(inc.id ?? '');
+    if (id) seenIncidents.add(id);
+  }
+  log({ event: 'baseline_incidents', count: seenIncidents.size });
+} catch (e) {
+  log({ event: 'baseline_error', error: String(e).slice(0, 160) });
+}
+
 for (;;) {
   await scanIncidents();
   await scanRequests();

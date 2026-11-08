@@ -70,7 +70,7 @@ const conn = await new Promise<DbConnection>((resolve, reject) => {
 await new Promise<void>((resolve, reject) => {
   conn.subscriptionBuilder()
     .onApplied(() => resolve())
-    .onError((_ctx, e) => reject(e))
+    .onError((ctx: any) => reject(ctx?.error ?? ctx))
     .subscribe((tables) =>
       [(tables as Record<string, { build(): unknown }>).observationFeed.build() as never]);
 });

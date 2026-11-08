@@ -160,9 +160,12 @@ def _build_service(args, evidence_dir=None):
         print(f"inspector config error: {exc}", file=sys.stderr)
         return None, None, None
 
+    from .telemetry import publisher_from_env
     svc = RoverService(
         routes, link,
-        publisher=ConsolePublisher(sys.stdout),
+        # MQTT env -> mission telemetry reaches gateway/SpacetimeDB;
+        # otherwise console (unchanged default for offline runs).
+        publisher=publisher_from_env(),
         config=ServiceConfig(device_id=routes.device_id, secret=secret,
                              evidence_dir=evidence_dir or args.evidence_dir),
         clock=clock,

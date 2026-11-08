@@ -1,34 +1,48 @@
 {
   "device_id": "rover-01",
-  "comment": "Registered Raspberry Pi inspection targets for inspect_zone checkpoint inspections. Each target binds a surveyed waypoint (zone_id+waypoint_id, same whitelist as config/routes.json) to one Pi. `address` is the allowlisted network address live health checks may probe; `checks` are restricted to ping|tcp_connect|http_health with bounded ports/paths. `cabinet_id` is the physical cabinet the autonomy stack knows this Pi serves — the hardware adapter (ROVER_INSPECTOR=hardware) maps inspect_zone checkpoints to {mission_id, action: inspect_cabinet, cabinet_id} commands and validates cabinet_id against this registry. Simulated runs never touch hardware or the network — outcomes are honestly labeled synthetic/DEMO. cabinet_id values are placeholders pending the physical cabinet survey.",
+  "comment": "Registered Raspberry Pi inspection targets for inspect_zone checkpoint inspections. Each target binds a surveyed waypoint (zone_id+waypoint_id, same whitelist as config/routes.json) to one Pi. `address` is the allowlisted network address live health checks may probe; `checks` are restricted to ping|tcp_connect|http_health with bounded ports/paths. `cabinet_id` is the physical cabinet the autonomy stack knows this Pi serves \u2014 the hardware adapter (ROVER_INSPECTOR=hardware) maps inspect_zone checkpoints to {mission_id, action: inspect_cabinet, cabinet_id} commands and validates cabinet_id against this registry. Simulated runs never touch hardware or the network \u2014 outcomes are honestly labeled synthetic/DEMO. cabinet_id values are placeholders pending the physical cabinet survey.",
   "targets": [
     {
-      "device_id": "pi-rack-01",
+      "device_id": "vpi-compute-01",
       "zone_id": "rack-01",
       "waypoint_id": "wp-rack-a",
       "address": "10.10.0.21",
       "cabinet_id": "cab-rack-a",
       "ssid": "HIVE-RACK-01",
       "bssid": "02:4c:96:0a:11:01",
-      "label": "Rack row Pi — node controller",
+      "label": "Rack row Pi \u2014 compute node (datacenter sim vpi-compute-01)",
       "checks": [
-        {"type": "ping"},
-        {"type": "tcp_connect", "port": 22},
-        {"type": "http_health", "port": 8080, "path": "/healthz"}
+        {
+          "type": "ping"
+        },
+        {
+          "type": "tcp_connect",
+          "port": 22
+        },
+        {
+          "type": "http_health",
+          "port": 8080,
+          "path": "/healthz"
+        }
       ]
     },
     {
-      "device_id": "pi-rack-02",
+      "device_id": "vpi-sensor-01",
       "zone_id": "rack-01",
       "waypoint_id": "wp-rack-b",
       "address": "10.10.0.22",
       "cabinet_id": "cab-rack-b",
       "ssid": "HIVE-RACK-02",
       "bssid": "02:4c:96:0a:11:02",
-      "label": "Rack row Pi — sensor aggregator",
+      "label": "Rack row Pi \u2014 sensor node (datacenter sim vpi-sensor-01)",
       "checks": [
-        {"type": "ping"},
-        {"type": "tcp_connect", "port": 22}
+        {
+          "type": "ping"
+        },
+        {
+          "type": "tcp_connect",
+          "port": 22
+        }
       ]
     },
     {
@@ -39,33 +53,20 @@
       "cabinet_id": "cab-equip-01",
       "ssid": "HIVE-CABINET-01",
       "bssid": "02:4c:96:0a:11:03",
-      "label": "Equipment cabinet Pi — contact sensor hub",
+      "label": "Equipment cabinet Pi \u2014 contact sensor hub",
       "checks": [
-        {"type": "ping"},
-        {"type": "tcp_connect", "port": 22},
-        {"type": "http_health", "port": 8080, "path": "/healthz"}
-      ]
-    },
-    {
-      "device_id": "vpi-compute-01",
-      "zone_id": "rack-01",
-      "waypoint_id": "wp-rack-a",
-      "address": "10.10.0.41",
-      "label": "Virtual Pi — compute node (datacenter sim)",
-      "checks": [
-        {"type": "ping"},
-        {"type": "tcp_connect", "port": 22}
-      ]
-    },
-    {
-      "device_id": "vpi-sensor-01",
-      "zone_id": "rack-01",
-      "waypoint_id": "wp-rack-b",
-      "address": "10.10.0.42",
-      "label": "Virtual Pi — sensor node (datacenter sim)",
-      "checks": [
-        {"type": "ping"},
-        {"type": "tcp_connect", "port": 22}
+        {
+          "type": "ping"
+        },
+        {
+          "type": "tcp_connect",
+          "port": 22
+        },
+        {
+          "type": "http_health",
+          "port": 8080,
+          "path": "/healthz"
+        }
       ]
     }
   ]

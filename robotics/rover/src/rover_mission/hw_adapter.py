@@ -204,15 +204,80 @@ class UnconfiguredHardwareTransport:
             "no live hardware transport bound (ROVER_HARDWARE_TRANSPORT)")
 
 
+class HttpHardwareTransport:
+    """POSTs the inspect_cabinet command to an autonomy HTTP endpoint.
+
+    ROVER_AUTONOMY_URL selects the endpoint (e.g. http://rover.local:8090/
+    inspect); ROVER_AUTONOMY_TIMEOUT_S bounds the wait (default 5s,
+    clamped 1..30). ROVER_AUTONOMY_TOKEN adds a bearer header when set.
+    Without a URL the transport fails closed like Unconfigured — an
+    inspect_cabinet mission is never silently dropped.
+
+    The autonomy response body is returned verbatim for the adapter's
+    normalization (mission_id/cabinet_id echo checks, status vocabulary,
+    timestamp handling). Transport failures raise HardwareTimeout so the
+    report lands as unreachable rather than a fabricated result.
+    """
+
+    name = "http"
+    provenance = "LIVE"
+    synthetic = False
+
+    def __init__(self, url: str = "", *, timeout_s: float = 5.0,
+                 token: str = "", opener=None):
+        self.url = url
+        self.timeout_s = min(max(float(timeout_s), 1.0), 30.0)
+        self.token = token
+        self._open = opener  # test hook: callable(request, timeout) -> (status, body)
+
+    def send(self, command: Mapping) -> Mapping:
+        if not self.url:
+            raise HardwareUnavailable(
+                "ROVER_AUTONOMY_URL not set — no autonomy HTTP endpoint")
+        import json
+        import urllib.request
+        import urllib.error
+
+        body = json.dumps(dict(command)).encode()
+        req = urllib.request.Request(
+            self.url, data=body, method="POST",
+            headers={"content-type": "application/json",
+                     **({"authorization": f"Bearer {self.token}"}
+                        if self.token else {})})
+        try:
+            if self._open is not None:
+                status, raw = self._open(req, self.timeout_s)
+            else:
+                with urllib.request.urlopen(req, timeout=self.timeout_s) as r:
+                    status, raw = r.status, r.read()
+        except Exception as exc:
+            raise HardwareTimeout(f"autonomy http: {exc.__class__.__name__}")
+        if not (200 <= int(status) < 300):
+            raise HardwareTimeout(f"autonomy http status {status}")
+        try:
+            resp = json.loads(raw)
+        except Exception:
+            raise HardwareTimeout("autonomy http: unparseable response")
+        if not isinstance(resp, dict):
+            return {"status": "error", "detail": "non-object response"}
+        return resp
+
+
 def hardware_transport_from_name(name: str, *, scenarios: Optional[Mapping] = None,
                                  clock=time.time) -> HardwareTransport:
     """Factory for CLI wiring. Unknown names fail closed."""
+    import os
     if name in ("sim", "simulated"):
         return SimulatedHardwareTransport(scenarios=scenarios, clock=clock)
+    if name in ("http", "https", "http-autonomy"):
+        return HttpHardwareTransport(
+            os.environ.get("ROVER_AUTONOMY_URL", ""),
+            timeout_s=float(os.environ.get("ROVER_AUTONOMY_TIMEOUT_S", "5")),
+            token=os.environ.get("ROVER_AUTONOMY_TOKEN", ""))
     if name in ("live", "esp32", "serial"):
         # Reserved for the hardware engineer's autonomy link — not bound yet.
         return UnconfiguredHardwareTransport()
-    raise ValueError(f"unknown hardware transport {name!r} (sim|live)")
+    raise ValueError(f"unknown hardware transport {name!r} (sim|http|live)")
 
 
 # ---------------------------------------------------------------------------
