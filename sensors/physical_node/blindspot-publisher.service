@@ -1,0 +1,16 @@
+[Unit]
+Description=BlindSpot signed physical-node telemetry publisher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/blindspot-publisher/publisher.env
+ExecStart=%h/.local/share/blindspot-publisher/venv/bin/python %h/.local/share/blindspot-publisher/publisher.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+UMask=0077
+
+[Install]
+WantedBy=default.target

@@ -8,6 +8,7 @@ Presentation-ready images and diagrams based on the repository's design document
 |---|---|---|
 | [BlindSpot Devpost banner](blindspot-devpost-banner.png) | 3:2 Devpost gallery thumbnail and README hero | PNG |
 | [High-level overview](05-blindspot-overview.svg) | Hackathon slide with workflow and stack logos | [SVG](05-blindspot-overview.svg) · [PNG](05-blindspot-overview.png) |
+| [Software and hardware architecture](06_blindspot_architecture.svg) | Judge-ready operating loop with trust boundaries and validation status | [SVG](06_blindspot_architecture.svg) · [PNG](06_blindspot_architecture.png) |
 | [Hero concept](hero-concept.png) | README cover or opening slide | PNG |
 | [Incident response concept](incident-response-concept.png) | 2D scene for a system overview | PNG |
 | [Hardware concept](hardware-concept.png) | Illustrate the rover prototype and conceptual sensor pucks | PNG |
@@ -16,7 +17,7 @@ Presentation-ready images and diagrams based on the repository's design document
 | [Hardware flow](03-hardware-flow.svg) | Explain intended sensing, motion, power and safety | [SVG](03-hardware-flow.svg) · [PNG](03-hardware-flow.png) |
 | [Evidence graph](04-evidence-graph.svg) | Explain provenance, decisions and verification | [SVG](04-evidence-graph.svg) · [PNG](04-evidence-graph.png) |
 
-The AI-generated illustrations are PNGs in a flat vector style; the diagrams are editable SVGs with PNG exports. The diagrams are 16:9. The high-level overview PNG is 1920 × 1080; the other diagram PNGs are 1600 × 900. SVGs can be scaled or edited as vectors. The conceptual graph does not invent performance measurements. To change diagram content and regenerate both formats, edit `generate_diagrams.py` and run `python3 docs/visuals/generate_diagrams.py` with CairoSVG installed. For the overview, run `python3 docs/visuals/generate_presentation_overview.py`.
+The AI-generated illustrations are PNGs in a flat vector style; the diagrams are editable SVGs with PNG exports. The diagrams are 16:9. The high-level overview and architecture flow PNGs are 1920 × 1080; the other diagram PNGs are 1600 × 900. SVGs can be scaled or edited as vectors. The conceptual graph does not invent performance measurements. To change diagram content and regenerate both formats, edit `generate_diagrams.py` and run `python3 docs/visuals/generate_diagrams.py` with CairoSVG installed. For the overview, run `python3 docs/visuals/generate_presentation_overview.py`. For the architecture flow, run `python3 docs/visuals/generate_architecture_flow.py`.
 
 ## Sources and limits
 

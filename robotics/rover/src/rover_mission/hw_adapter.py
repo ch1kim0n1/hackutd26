@@ -53,8 +53,7 @@ from .netinspect import InspectionDenied
 
 ACTION_INSPECT_CABINET = "inspect_cabinet"
 
-# Response statuses the autonomy side may return. "duplicate" means the
-# mission_id was already executed — dedup evidence, mapped to ok below.
+# A duplicate acknowledgement does not establish the mission's result.
 _HW_RESPONSE_STATUSES = REPORT_STATUSES | {"duplicate"}
 
 
@@ -244,23 +243,75 @@ class HttpHardwareTransport:
             headers={"content-type": "application/json",
                      **({"authorization": f"Bearer {self.token}"}
                         if self.token else {})})
+        def request(request_obj, timeout):
+            try:
+                if self._open is not None:
+                    status, raw = self._open(request_obj, timeout)
+                else:
+                    with urllib.request.urlopen(request_obj, timeout=timeout) as r:
+                        status, raw = r.status, r.read(1024 * 1024)
+                if not 200 <= int(status) < 300:
+                    raise HardwareTimeout(f"autonomy http status {status}")
+                result = json.loads(raw)
+                if not isinstance(result, dict):
+                    raise ValueError('non-object response')
+                return int(status), result
+            except HardwareTimeout:
+                raise
+            except Exception as exc:
+                raise HardwareTimeout(f"autonomy http: {exc.__class__.__name__}") from exc
+
+        deadline = time.monotonic() + self.timeout_s
+        status, resp = request(req, max(0.01, deadline - time.monotonic()))
+        # Legacy synchronous endpoints return a complete report. A 202 (or a
+        # mission state in a 200 duplicate response) is only an acknowledgement.
+        pending = {'accepted', 'searching', 'target_found', 'inspecting', 'running'}
+        state = str(resp.get('state', '')).lower()
+        if status != 202 and not state:
+            return resp
+
+        from urllib.parse import quote
+        mission_id = str(command.get('mission_id', ''))
+        if not mission_id or resp.get('mission_id') != mission_id:
+            raise HardwareTimeout('autonomy acknowledgement mission mismatch')
+        poll_url = self.url.rstrip('/') + '/' + quote(mission_id, safe='')
+        headers = {'authorization': f'Bearer {self.token}'} if self.token else {}
+        terminal = False
         try:
-            if self._open is not None:
-                status, raw = self._open(req, self.timeout_s)
-            else:
-                with urllib.request.urlopen(req, timeout=self.timeout_s) as r:
-                    status, raw = r.status, r.read()
-        except Exception as exc:
-            raise HardwareTimeout(f"autonomy http: {exc.__class__.__name__}")
-        if not (200 <= int(status) < 300):
-            raise HardwareTimeout(f"autonomy http status {status}")
-        try:
-            resp = json.loads(raw)
-        except Exception:
-            raise HardwareTimeout("autonomy http: unparseable response")
-        if not isinstance(resp, dict):
-            return {"status": "error", "detail": "non-object response"}
-        return resp
+            while time.monotonic() < deadline:
+                if resp.get('mission_id') != mission_id:
+                    raise HardwareTimeout('autonomy result mission mismatch')
+                state = str(resp.get('state', '')).lower()
+                if state in ('failed', 'aborted'):
+                    terminal = True
+                    return {**resp, 'status': 'error', 'detail': resp.get('error') or state}
+                if state == 'completed':
+                    terminal = True
+                    # Completion alone does not prove the scoped inspection ran.
+                    report = resp.get('report')
+                    if not isinstance(report, dict):
+                        return {**resp, 'status': 'error', 'detail': 'completed without inspection report'}
+                    if report.get('mission_id') != mission_id or report.get('cabinet_id') != resp.get('cabinet_id'):
+                        raise HardwareTimeout('autonomy inspection report identity mismatch')
+                    return report
+                if state not in pending:
+                    raise HardwareTimeout('autonomy returned unknown mission state')
+                time.sleep(min(0.2, max(0, deadline - time.monotonic())))
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                _, resp = request(urllib.request.Request(poll_url, headers=headers), remaining)
+                state = str(resp.get('state', '')).lower()
+            raise HardwareTimeout('autonomy mission timed out; abort requested')
+        finally:
+            # On timeout, malformed response, or lost connectivity, request a
+            # stop. The rover must independently stop on loss of supervision.
+            if not terminal:
+                try:
+                    request(urllib.request.Request(poll_url + '/abort', data=b'{}',
+                            method='POST', headers={**headers, 'content-type': 'application/json'}), 1.0)
+                except HardwareTimeout:
+                    pass
 
 
 def hardware_transport_from_name(name: str, *, scenarios: Optional[Mapping] = None,
@@ -420,8 +471,10 @@ class HardwareCabinetInspector:
 
         raw_status = str(resp.get("status", ""))
         if raw_status == "duplicate":
-            # mission_id already executed autonomy-side — dedup evidence.
-            status, detail = STATUS_OK, "duplicate_mission_suppressed"
+            # A retry may refer to a queued, running, failed, or completed
+            # mission. Never turn an acknowledgement into a successful
+            # inspection without a correlated terminal result.
+            status, detail = STATUS_ERROR, "duplicate_result_unverified"
         elif raw_status in REPORT_STATUSES:
             status, detail = raw_status, str(resp.get("detail", ""))
         else:

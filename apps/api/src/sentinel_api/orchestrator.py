@@ -15,6 +15,7 @@ tool allowlist; containment stays proposal-only pending #113.
 from __future__ import annotations
 
 import os
+import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -116,6 +117,7 @@ class Orchestrator:
         self.max_tool_calls = max_tool_calls
         self.source = source or MemoryEventSource()
         self._pending: Deque[InvestigationEvent] = deque()
+        self._pump_lock = threading.Lock()
         self._seen: set[tuple[str, str]] = set()
         self._agents: dict[str, HardenedAgent] = {}
         self.processed: dict[tuple[str, str], str] = {}
@@ -182,20 +184,21 @@ class Orchestrator:
     # ---------------- execution ----------------
     def pump(self) -> list[dict]:
         """Run pending investigations; returns new run records."""
-        runs = []
-        while self._pending:
-            event = self._pending.popleft()
-            try:
-                runs.append(self._run(event))
-            except Exception as exc:  # one bad event must not stall queue
-                self.stats["failed"] += 1
-                runs.append({
-                    "event_id": event.event_id, "kind": event.kind,
-                    "incident_id": event.incident_id, "status": "failed",
-                    "error": f"{type(exc).__name__}: {exc}",
-                    "provenance": event.provenance,
-                })
-        return runs
+        with self._pump_lock:
+            runs = []
+            while self._pending:
+                event = self._pending.popleft()
+                try:
+                    runs.append(self._run(event))
+                except Exception as exc:  # one bad event must not stall queue
+                    self.stats["failed"] += 1
+                    runs.append({
+                        "event_id": event.event_id, "kind": event.kind,
+                        "incident_id": event.incident_id, "status": "failed",
+                        "error": f"{type(exc).__name__}: {exc}",
+                        "provenance": event.provenance,
+                    })
+            return runs
 
     def _agent_for(self, incident_id: str) -> HardenedAgent:
         if incident_id not in self._agents:

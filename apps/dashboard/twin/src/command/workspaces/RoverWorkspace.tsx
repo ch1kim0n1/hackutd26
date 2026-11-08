@@ -1,9 +1,42 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Battery, Camera, Check, Crosshair, Home, MapPin, Navigation, OctagonX, Play, Radar, Route, ShieldCheck } from 'lucide-react'
 import { useCommandStore } from '../store'
 import { formatTime } from '../model'
 import { Panel, Status } from '../components/Primitives'
 import TelemetryChart from '../components/TelemetryChart'
+import { localCameraBase } from '../live/camera'
+
+const cameraSetting = import.meta.env.VITE_ROVER_CAMERA_URL as string | undefined
+
+function LiveCamera({ base }: { base: string | null }) {
+  const [health, setHealth] = useState<'connecting' | 'live' | 'unavailable'>('connecting')
+  const [timestamp, setTimestamp] = useState('')
+  useEffect(() => {
+    if (!base) return
+    let active = true
+    async function poll() {
+      try {
+        const response = await fetch(`${base}/health`, { cache: 'no-store', signal: AbortSignal.timeout(2500) })
+        if (!response.ok) throw new Error('camera unavailable')
+        const data: unknown = await response.json()
+        if (!active) return
+        const info = data as { frame_age_s?: unknown; timestamp_utc?: unknown }
+        const fresh = typeof info.frame_age_s === 'number' && Number.isFinite(info.frame_age_s) && info.frame_age_s >= 0 && info.frame_age_s < 3 && typeof info.timestamp_utc === 'string' && info.timestamp_utc.length > 0
+        setTimestamp(fresh ? String(info.timestamp_utc) : '')
+        setHealth(fresh ? 'live' : 'unavailable')
+      } catch { if (active) { setTimestamp(''); setHealth('unavailable') } }
+    }
+    void poll()
+    const interval = window.setInterval(poll, 2000)
+    return () => { active = false; window.clearInterval(interval) }
+  }, [base])
+  const live = !!base && health === 'live'
+  return <div className="pc-camera-view" data-testid="physical-camera">
+    {live ? <img className="pc-camera-live-image" src={`${base}/stream.mjpg`} alt="Live rover camera" onError={() => setHealth('unavailable')} /> : <div className="pc-camera-unavailable" role="status">{base && health === 'connecting' ? 'Connecting to rover camera…' : 'Rover camera unavailable or stale'}</div>}
+    <div className="pc-camera-meta"><span><i className={`pc-dot ${live ? 'pc-green' : 'pc-red'}`} /> {live ? 'CAM 01 / LIVE' : 'CAM 01 / OFFLINE'}</span><time>{timestamp}</time></div>
+    <div className="pc-camera-bottom"><span>LIVE VIDEO ONLY · NO PHYSICAL ROVER CONTROL</span></div>
+  </div>
+}
 
 export function SimulatedCamera() {
   const state = useCommandStore(s => s.state)
@@ -35,8 +68,9 @@ export default function RoverWorkspace() {
   const active = state.missions.find(m => m.id === state.rover.missionId)
   return <div className="pc-rover-workspace">
     <div className="pc-rover-status"><div className="pc-unit-mark"><Navigation size={24} /></div><div><h2>PHANTOM-01 <span className="pc-eyebrow">Autonomous security rover</span></h2><p>{active?.title ?? 'Awaiting mission assignment'} · Simulated operations</p></div><Status tone={state.rover.stopped ? 'red' : 'green'}>{state.rover.stopped ? 'Emergency stop' : active?.status.replace('_',' ') ?? 'Standby'}</Status>{mode === 'demo' && <><button className="pc-button" onClick={returnHome}><Home size={14} /> Return home</button><button className="pc-button pc-danger-button" onClick={emergencyStop} disabled={state.rover.stopped}><OctagonX size={14} /> Emergency stop</button></>}</div>
+    {cameraSetting && <p className="pc-policy-note" role="note">The camera is a physical feed. Demo movement and emergency-stop controls do not control the physical rover.</p>}
     {state.rover.stopped && <div className="pc-stop-banner" role="alert"><OctagonX size={20} /><span><b>Emergency stop is latched.</b> Rover motion is halted independently of the simulation clock.</span><button className="pc-button" onClick={releaseStop}><Play size={14} /> Release stop</button></div>}
-    <div className="pc-rover-sensors"><Panel title="Forward camera" label="SIMULATED" actions={<Camera size={15} className="pc-green" />}><SimulatedCamera /></Panel><Panel title="LiDAR perception" label="LOCAL MAP" actions={<Radar size={15} className="pc-cyan" />}><LidarView /></Panel></div>
+    <div className="pc-rover-sensors"><Panel title="Forward camera" label={cameraSetting ? 'PHYSICAL FEED' : 'SIMULATED'} actions={<Camera size={15} className="pc-green" />}>{cameraSetting ? <LiveCamera base={localCameraBase(cameraSetting)} /> : <SimulatedCamera />}</Panel><Panel title="LiDAR perception" label="LOCAL MAP" actions={<Radar size={15} className="pc-cyan" />}><LidarView /></Panel></div>
     <div className="pc-rover-telemetry"><div><Battery size={18} /><span>Battery</span><strong>{state.rover.battery.toFixed(1)}<small>%</small></strong><div className="pc-meter"><i style={{ width: `${state.rover.battery}%` }} /></div></div><div><Navigation size={18} /><span>Velocity</span><strong>{state.rover.speed.toFixed(2)}<small>m/s</small></strong><small>{state.rover.stopped ? 'Safety interlock engaged' : 'Bounded inspection speed'}</small></div><div><Crosshair size={18} /><span>Position · map frame</span><strong>{state.rover.position.x.toFixed(1)}<small>x</small> {state.rover.position.y.toFixed(1)}<small>y</small></strong><small>Heading {(state.rover.heading * 180 / Math.PI).toFixed(0)}°</small></div><div><Route size={18} /><span>Distance travelled</span><strong>{state.rover.distance.toFixed(1)}<small>m</small></strong><small>{state.missions.filter(m => m.status === 'complete').length} missions complete</small></div></div>
     <div className="pc-rover-lower"><Panel title="Mission queue" label={`${state.missions.length} ASSIGNMENTS`}><div className="pc-mission-list">{state.missions.length === 0 && <div className="pc-clear-state"><Route size={26} /><b>Mission queue ready</b><span>Start a scenario or choose a checkpoint.</span></div>}{state.missions.slice(-6).reverse().map(m => <button key={m.id} onClick={() => { if (m.incidentId) { select(m.incidentId); navigate('incidents') } else { navigate('twin') } }}><span className={`pc-mission-icon ${m.status === 'complete' ? 'pc-green' : 'pc-cyan'}`}>{m.status === 'complete' ? <Check size={16} /> : <Route size={16} />}</span><span><b>{m.title}</b><small>{m.type.toUpperCase()} · {m.target.x.toFixed(1)}, {m.target.y.toFixed(1)} m</small></span><Status tone={m.status === 'complete' ? 'green' : 'cyan'}>{m.status.replace('_',' ')}</Status></button>)}</div></Panel><Panel title="Navigation checkpoints" label="POLICY BOUNDED"><div className="pc-checkpoints">{state.zones.map(z => <button className="pc-checkpoint" key={z.id} disabled={state.rover.stopped || mode === 'live'} onClick={() => waypoint(z.position, z.id)}><MapPin size={18} /><span><b>{z.name}</b><small>{z.code} · Queue inspection waypoint</small></span><Navigation size={14} /></button>)}</div><p className="pc-policy-note"><ShieldCheck size={15} /> Waypoints follow approved facility corridors. All movement is simulated.</p></Panel><Panel title="Compute telemetry" label="CPU %"><TelemetryChart samples={state.telemetry} metric="cpu" /><p className="pc-policy-note">Mock sensor streams · ROS 2 adapter boundary prepared</p></Panel></div>
   </div>

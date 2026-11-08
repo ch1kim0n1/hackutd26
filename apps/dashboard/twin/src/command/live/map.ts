@@ -47,7 +47,7 @@ const DEVICE_KIND: Record<string, DeviceKind> = {
   Rover: 'rover', Kismet: 'wifi', Sdr: 'sensor', Camera: 'sensor', Other: 'sensor',
 }
 const DEVICE_STATUS: Record<string, Device['status']> = {
-  Online: 'healthy', Degraded: 'watch', Fault: 'threat', Offline: 'watch', Unknown: 'healthy',
+  Online: 'healthy', Degraded: 'watch', Fault: 'threat', Offline: 'watch', Unknown: 'watch',
 }
 
 export function mapDevices(rows: LiveRows, ctx: MapContext): Device[] {
@@ -61,11 +61,11 @@ export function mapDevices(rows: LiveRows, ctx: MapContext): Device[] {
     // a measurement (documented gap).
     const h = hashId(d.id)
     const position = { x: base.x + ((h % 5) - 2) * 0.9, y: base.y + (((h >> 4) % 5) - 2) * 0.9 }
-    const status = DEVICE_STATUS[d.status.tag] ?? 'healthy'
+    const status = DEVICE_STATUS[d.status.tag] ?? 'watch'
     const rssi = -70 // no per-device RF telemetry in the schema (rf_frames is receiver-level)
     return {
       id: d.id, name: d.id.toUpperCase(), kind, zoneId: d.zoneId,
-      position, status,
+      position, status, statusKnown: !!DEVICE_STATUS[d.status.tag] && d.status.tag !== 'Unknown',
       protocol: kind === 'ble' ? 'BLE' : kind === 'wifi' ? 'Wi-Fi' : 'System',
       address: `lab://${d.id}`, vendor: `${d.type.tag} · fw ${d.firmware || 'unknown'}`,
       risk: d.status.tag === 'Fault' ? 88 : d.status.tag === 'Degraded' ? 55 : 8,
@@ -104,6 +104,7 @@ export function mapObservations(rows: LiveRows, ctx: MapContext): Observation[] 
     deviceIds: [o.deviceId],
     at: backendToElapsed(toMicros(o.observedAt), ctx.elapsed, ctx.backendNowMicros),
     detail: `${TAG(ctx)} · ${o.kind} on ${o.deviceId} (seq ${o.seq}, ${o.trustTier.tag}) — ${summarizeDataJson(o.dataJson)}`,
+    observedAtUtc: toMicros(o.observedAt) > 0 ? new Date(toMicros(o.observedAt) / 1000).toISOString() : undefined,
   }))
 }
 

@@ -147,12 +147,12 @@ def test_event_via_http_agent_token(client, auth, state):
     r = client.post("/internal/events", headers=auth["agent"], json={
         "event_id": "evt-http-1", "kind": "wifi_probe"})
     assert r.json()["status"] == "duplicate"
-    # pump runs the investigation end-to-end
+    # Accepted HTTP events run automatically; a manual pump does not repeat it.
     r = client.post("/internal/orchestrator/pump", headers=auth["agent"])
     assert r.status_code == 200
     body = r.json()
-    assert body["count"] == 1
-    run = body["runs"][0]
+    assert body["count"] == 0
+    run = state.investigation_runs[-1]
     assert run["event_id"] == "evt-http-1"
     assert run["trace"]
     # status endpoint reports stats

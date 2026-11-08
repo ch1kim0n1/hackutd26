@@ -240,6 +240,12 @@ export function normalizeTelemetry(
     return { ok: true, value: { ...strict.value, seqAssigned: false } };
   }
 
+  // The legacy rover fallback is unsigned. A keyed device must never reach
+  // it by submitting a malformed canonical envelope or a rover-shaped body.
+  if (hmacKeys[topicDeviceIdValue]) {
+    return { ok: false, reason: 'keyed device requires a signed canonical envelope' };
+  }
+
   const text = typeof raw === 'string' ? raw : raw.toString('utf8');
   if (Buffer.byteLength(text, 'utf8') > MAX_PACKET_BYTES) {
     return { ok: false, reason: 'packet exceeds 16KiB' };
