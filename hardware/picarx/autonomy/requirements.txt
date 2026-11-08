@@ -1,0 +1,6 @@
+numpy
+pyyaml
+pillow
+pyserial        # real LiDAR (serial mode)
+gpiozero        # real motors (apt: python3-gpiozero python3-lgpio on Raspberry Pi OS)
+requests        # optional: POST pose to the dashboard backend
