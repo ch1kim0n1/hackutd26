@@ -1,12 +1,17 @@
 // Demo feed - stands in for TwinFeed/SpacetimeDB until live backend
 // is wired. Same contract: subscribe(principal)->sub_id,
 // stream(sub_id)->FeedItem[]. All data SIMULATED, provenance labeled.
-const INCIDENTS = [
-  { incident_id: "inc-1", title: "Rogue AP near rack-01",
-    x: 2, z: 1, severity: "high" },
-  { incident_id: "inc-2", title: "Cabinet door open - lab-b",
-    x: -3, z: -2, severity: "medium" },
-];
+// Incident markers derive from the fictional Meridian Datacenters
+// dataset (mock/company.ts).
+import { incidents as COMPANY_INCIDENTS, zones as COMPANY_ZONES } from './mock/company.ts'
+
+const ZONE_CENTERS = Object.fromEntries(
+  COMPANY_ZONES.map((z) => [z.id, { x: z.bounds.x + z.bounds.w / 2, z: z.bounds.y + z.bounds.d / 2 }])
+)
+const INCIDENTS = COMPANY_INCIDENTS.filter((i) => i.status !== 'resolved').map((i) => ({
+  incident_id: i.id, title: i.title, severity: i.severity,
+  x: ZONE_CENTERS[i.zoneId]?.x ?? 0, z: ZONE_CENTERS[i.zoneId]?.z ?? 0,
+}))
 
 export class DemoFeed {
   constructor() {
