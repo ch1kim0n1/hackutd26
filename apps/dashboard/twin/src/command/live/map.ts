@@ -22,7 +22,7 @@ function hashId(id: string): number {
   return h
 }
 
-const ZONE_COLORS = ['#a8a29e', '#eab308', '#bfb6ab', '#7dd3fc', '#f472b6', '#86efac']
+const ZONE_COLORS = ['#a8a29e', '#22c55e', '#bfb6ab', '#7dd3fc', '#f472b6', '#86efac']
 
 export function mapZones(rows: LiveRows['zones']): Zone[] {
   return rows.map((z, i) => {

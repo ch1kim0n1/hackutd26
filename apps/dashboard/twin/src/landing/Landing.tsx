@@ -1,7 +1,13 @@
-import { ArrowRight, ArrowUpRight, Bot, Box, Crosshair, FileCheck2, GitBranch, Hand, LayoutDashboard, Network, OctagonX, Radar, Radio, ScanSearch, Shield, ShieldAlert, Workflow } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Bot, Box, Crosshair, FileCheck2, GitBranch, Hand, LayoutDashboard, Network, OctagonX, Radar, Radio, ScanSearch, ShieldAlert, Workflow } from 'lucide-react'
 import { AnimatePresence, MotionConfig, motion, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'motion/react'
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Scramble, SignalMesh, spot, Tilt, useRevealProgress, wordVariants, WordReveal } from './effects'
+import { MarqueeBand, Scene, ScrollCue, ShieldArt, useHorizontalScroll, WorkspaceArt } from './visuals'
+import espressif from './logos/espressif.svg'
+import nvidia from './logos/nvidia.svg'
+import react from './logos/react.svg'
+import spacetimedb from './logos/spacetimedb.svg'
+import three from './logos/threedotjs.svg'
 import './landing.css'
 
 const CONSOLE = '#overview'
@@ -39,12 +45,23 @@ const guardrails = [
   { icon: GitBranch, name: 'Full evidence trail', line: 'Every conclusion is traceable.' },
 ]
 
-const stack = ['NVIDIA Nemotron', 'SpacetimeDB', 'React', 'Three.js', 'ROS 2', 'ESP32']
+const stack: { name: string; logo?: string }[] = [
+  { name: 'NVIDIA Nemotron', logo: nvidia },
+  { name: 'SpacetimeDB', logo: spacetimedb },
+  { name: 'React', logo: react },
+  { name: 'Three.js', logo: three },
+  { name: 'ESP32', logo: espressif },
+  { name: 'ROS 2' },
+]
 
 const grid = { hidden: {}, show: { transition: { staggerChildren: .09 } } }
 const tile = {
   hidden: { opacity: 0, y: 60, scale: .94, rotateX: 14 },
   show: { opacity: 1, y: 0, scale: 1, rotateX: 0, transition: { duration: .9, ease: EASE } },
+}
+const slideIn = {
+  hidden: { opacity: 0, x: 60, filter: 'blur(6px)' },
+  show: { opacity: 1, x: 0, filter: 'blur(0px)', transition: { duration: .8, ease: EASE } },
 }
 const inView = { initial: 'hidden', whileInView: 'show', viewport: { once: true, margin: '-80px' } } as const
 
@@ -74,7 +91,7 @@ function FacilityMap() {
         <defs>
           <pattern id="lp-grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="currentColor" strokeWidth=".5" /></pattern>
           <radialGradient id="lp-threat-glow"><stop offset="0" stopColor="#ef4444" stopOpacity=".5" /><stop offset="1" stopColor="#ef4444" stopOpacity="0" /></radialGradient>
-          <radialGradient id="lp-cone"><stop offset="0" stopColor="#eab308" stopOpacity=".35" /><stop offset="1" stopColor="#eab308" stopOpacity="0" /></radialGradient>
+          <radialGradient id="lp-cone"><stop offset="0" stopColor="#22c55e" stopOpacity=".35" /><stop offset="1" stopColor="#22c55e" stopOpacity="0" /></radialGradient>
         </defs>
         <rect width="480" height="360" fill="url(#lp-grid)" className="lp-map-grid" />
         <rect x="236" y="30" width="224" height="204" className="lp-zone is-threat" />
@@ -112,7 +129,7 @@ function Hero() {
     <SignalMesh className="lp-mesh" />
     <section className="lp-hero" aria-labelledby="lp-title">
       <motion.div className="lp-hero-copy" style={reduced ? undefined : { y: copyY, opacity: copyOpacity }}>
-        <motion.p className="lp-pill" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6, ease: EASE }}><span className="lp-dot is-live" /><Scramble text="HackUTD 2026" speed={40} /></motion.p>
+        <motion.p className="lp-pill" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6, ease: EASE }}><span className="lp-dot is-live" /><Scramble text="BlindSpot · HackUTD 2026" speed={30} /></motion.p>
         <motion.h1 id="lp-title" initial="hidden" animate="show" transition={{ staggerChildren: .08, delayChildren: .15 }}>
           {[['Security', 'that'], ['moves', 'into', 'the']].map(line => <span key={line[0]} className="lp-line">{line.map(word => <span key={word} className="lp-word"><motion.span variants={wordVariants}>{word}</motion.span></span>)}</span>)}
           <span className="lp-line"><span className="lp-word"><motion.em variants={wordVariants} className="lp-glitch" data-text="blind spot.">blind spot.</motion.em></span></span>
@@ -129,11 +146,12 @@ function Hero() {
             <FacilityMap />
             <div className="lp-glare" aria-hidden="true" />
             <div className="lp-float is-approval"><span className="lp-float-icon"><Hand size={18} /></span><span><b>Approve isolation?</b><small>Waiting on you</small></span></div>
-            <div className="lp-float is-agent"><span className="lp-float-icon is-amber"><Bot size={18} /></span><span><b>Agent</b><small>Investigating…</small></span></div>
+            <div className="lp-float is-agent"><span className="lp-float-icon is-accent"><Bot size={18} /></span><span><b>Agent</b><small>Investigating…</small></span></div>
           </Tilt>
         </motion.div>
       </motion.div>
     </section>
+    <motion.div style={reduced ? undefined : { opacity: copyOpacity }}><ScrollCue /></motion.div>
   </div>
 }
 
@@ -167,6 +185,9 @@ function Pipeline() {
       </div>
       <div className="lp-story-caption" aria-live="polite">
         <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={step.name} className="lp-story-ghost" aria-hidden="true" initial={{ opacity: 0, scale: .6, rotate: -20 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 1.4, rotate: 15 }} transition={{ duration: .6, ease: EASE }}><step.icon strokeWidth={1} /></motion.div>
+        </AnimatePresence>
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div key={step.name} initial={{ opacity: 0, y: 24, filter: 'blur(8px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -24, filter: 'blur(8px)' }} transition={{ duration: .45, ease: EASE }}>
             <span>0{active + 1} · {step.name}</span><p>{step.line}</p>
           </motion.div>
@@ -176,62 +197,74 @@ function Pipeline() {
   </section>
 }
 
+/** Workspace cards travel sideways while the section is pinned. */
+function Gallery() {
+  const { section, track, x, progress, height } = useHorizontalScroll()
+  return <section id="workspaces" ref={section} className="lp-gallery" aria-label="Workspaces" style={{ height: height === null ? undefined : `calc(100vh + ${height}px)` }}>
+    <div className="lp-gallery-sticky">
+      <div className="lp-gallery-head"><Heading eyebrow="phantom command" title="Six views. One operation." /></div>
+      <motion.div ref={track} className="lp-gallery-track" style={{ x }}>
+        {workspaces.map((w, i) => <motion.a key={w.id} href={`#${w.id}`} className="lp-wcard lp-glow" onPointerMove={spot} variants={tile} {...inView} transition={{ delay: i * .06 }}>
+          <div className="lp-wcard-art"><WorkspaceArt id={w.id} /></div>
+          <div className="lp-wcard-foot"><span className="lp-card-icon"><w.icon size={22} strokeWidth={1.6} /></span><h3>{w.name}</h3><ArrowUpRight size={22} className="lp-card-arrow" /></div>
+        </motion.a>)}
+      </motion.div>
+      <div className="lp-gallery-progress" aria-hidden="true"><motion.i style={{ scaleX: progress }} /></div>
+    </div>
+  </section>
+}
+
 export default function Landing() {
   const { scrollYProgress } = useScroll()
   const progress = useSpring(scrollYProgress, { stiffness: 200, damping: 30, restDelta: .001 })
-  const [scrolled, setScrolled] = useState(false)
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12)
-    onScroll(); window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
 
   return <MotionConfig reducedMotion="user"><div className="lp">
     <motion.div className="lp-progress" style={{ scaleX: progress }} aria-hidden="true" />
     <div className="lp-backdrop" aria-hidden="true" />
-    <header className={`lp-nav ${scrolled ? 'is-scrolled' : ''}`}>
-      <div className="lp-nav-inner">
-        <a className="lp-brand" href="/" aria-label="BlindSpot home"><span className="lp-brand-mark"><Shield size={24} strokeWidth={1.4} /><i /></span><b>BLINDSPOT</b></a>
-        <nav aria-label="Page sections"><Jump to="how">How it works</Jump><Jump to="workspaces">Workspaces</Jump><Jump to="guardrails">Guardrails</Jump></nav>
-        <a className="lp-btn is-small" href={CONSOLE}>Launch <ArrowRight size={16} /></a>
-      </div>
-    </header>
+    <motion.a className="lp-btn is-ghost lp-corner" href={CONSOLE} initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: 1.1, ease: EASE }}>
+      <span className="lp-dot is-live" /> Open dashboard <ArrowUpRight size={16} />
+    </motion.a>
 
     <main>
       <Hero />
-      <Stats />
+      <Scene><Stats /></Scene>
+      <MarqueeBand words={['Sense', 'Detect', 'Analyze', 'Investigate', 'Report']} />
       <Pipeline />
-
-      <section id="workspaces" className="lp-section" aria-label="Workspaces">
-        <Heading eyebrow="phantom command" title="Six views. One operation." />
-        <motion.div className="lp-cards" variants={grid} {...inView}>{workspaces.map(w => <motion.a key={w.id} href={`#${w.id}`} className="lp-card lp-glow" onPointerMove={spot} variants={tile}>
-          <span className="lp-card-icon"><w.icon size={24} strokeWidth={1.6} /></span>
-          <h3>{w.name}</h3>
-          <ArrowUpRight size={20} className="lp-card-arrow" />
-        </motion.a>)}</motion.div>
-      </section>
+      <Gallery />
 
       <section id="guardrails" className="lp-section" aria-label="Guardrails">
-        <Heading eyebrow="guardrails" title="Autonomous. Accountable." />
-        <motion.div className="lp-guardrails" variants={grid} {...inView}>{guardrails.map(g => <motion.div key={g.name} className="lp-guardrail lp-glow" onPointerMove={spot} variants={tile}>
-          <span className="lp-guard-icon"><g.icon size={24} strokeWidth={1.6} /></span><div><h3>{g.name}</h3><p>{g.line}</p></div>
-        </motion.div>)}</motion.div>
+        <Scene className="lp-guard-layout">
+          <ShieldArt />
+          <div>
+            <Heading eyebrow="guardrails" title="Autonomous. Accountable." />
+            <motion.div className="lp-guardrails" variants={grid} {...inView}>{guardrails.map(g => <motion.div key={g.name} className="lp-guardrail lp-glow" onPointerMove={spot} variants={slideIn}>
+              <span className="lp-guard-icon"><g.icon size={24} strokeWidth={1.6} /></span><div><h3>{g.name}</h3><p>{g.line}</p></div>
+            </motion.div>)}</motion.div>
+          </div>
+        </Scene>
       </section>
+
+      <MarqueeBand words={['Observe', 'Reason', 'Respond', 'Verify', 'Approve']} />
 
       <section className="lp-section lp-stack-wrap" aria-label="Built with">
-        <motion.ul className="lp-stack" variants={grid} {...inView}>{stack.map(name => <motion.li key={name} variants={{ hidden: { opacity: 0, y: 20, filter: 'blur(6px)' }, show: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: .7, ease: EASE } } }}>{name}</motion.li>)}</motion.ul>
+        <motion.ul className="lp-stack" variants={grid} {...inView}>{stack.map(s => <motion.li key={s.name} variants={{ hidden: { opacity: 0, y: 24, scale: .9, filter: 'blur(6px)' }, show: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', transition: { duration: .7, ease: EASE } } }}>
+          {s.logo && <span className="lp-logo" style={{ '--logo': `url(${JSON.stringify(s.logo)})` } as never} />}{s.name}
+        </motion.li>)}</motion.ul>
       </section>
 
-      <motion.section className="lp-cta" aria-label="Get started" initial={{ opacity: 0, y: 60, scale: .96 }} whileInView={{ opacity: 1, y: 0, scale: 1 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 1, ease: EASE }}>
-        <div className="lp-cta-inner">
-          <div className="lp-cta-glow" aria-hidden="true" />
-          <WordReveal text="See it in action." />
-          <div className="lp-actions is-center">
-            <a className="lp-btn is-pulse is-large" href={CONSOLE}>Launch Phantom Command <ArrowRight size={20} /></a>
-            <a className="lp-btn is-ghost is-large" href={REPO} target="_blank" rel="noreferrer">Source <ArrowUpRight size={18} /></a>
+      <Scene className="lp-cta-scene">
+        <section className="lp-cta" aria-label="Get started">
+          <div className="lp-cta-inner">
+            <SignalMesh className="lp-cta-mesh" />
+            <div className="lp-cta-glow" aria-hidden="true" />
+            <WordReveal text="See it in action." />
+            <div className="lp-actions is-center">
+              <a className="lp-btn is-pulse is-large" href={CONSOLE}>Launch Phantom Command <ArrowRight size={20} /></a>
+              <a className="lp-btn is-ghost is-large" href={REPO} target="_blank" rel="noreferrer">Source <ArrowUpRight size={18} /></a>
+            </div>
           </div>
-        </div>
-      </motion.section>
+        </section>
+      </Scene>
     </main>
 
     <footer className="lp-footer"><span><span className="lp-dot is-live" /> BlindSpot · HackUTD 2026</span><span>Demo data is simulated.</span></footer>

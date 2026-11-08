@@ -3,7 +3,7 @@ import type { CommandState, Device, Point, ScenarioId, Zone } from './model'
 export const HOME: Point = { x: 18, y: 3 }
 export const ZONES: Zone[] = [
   { id: 'zone-server', name: 'Server hall', code: 'A', bounds: [0, 0, 14, 18], position: { x: 7, y: 9 }, color: '#a8a29e' },
-  { id: 'zone-network', name: 'Network core', code: 'B', bounds: [14, 9, 24, 18], position: { x: 19, y: 13.5 }, color: '#eab308' },
+  { id: 'zone-network', name: 'Network core', code: 'B', bounds: [14, 9, 24, 18], position: { x: 19, y: 13.5 }, color: '#22c55e' },
   { id: 'zone-operations', name: 'Operations', code: 'C', bounds: [14, 0, 24, 9], position: { x: 19, y: 4.5 }, color: '#bfb6ab' },
 ]
 const pad = (n: number) => String(n).padStart(2, '0')

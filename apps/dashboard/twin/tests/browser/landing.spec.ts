@@ -8,11 +8,12 @@ test('landing page introduces the project and hands over to the dashboard', asyn
   await page.screenshot({ path: 'test-results/landing.png', fullPage: true })
 
   // Section links scroll in place and must not open the dashboard.
-  await page.getByRole('navigation', { name: 'Page sections' }).getByRole('link', { name: 'Workspaces' }).click()
+  await page.getByRole('link', { name: 'How it works' }).click()
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('heading', { name: 'Six views. One operation.' })).toBeInViewport()
+  await expect(page.getByRole('heading', { name: 'Signal to verdict.' })).toBeInViewport()
 
-  await page.getByRole('link', { name: /Launch Phantom Command/ }).first().click()
+  // The floating corner button opens the dashboard from anywhere on the page.
+  await page.getByRole('link', { name: /Open dashboard/ }).click()
   await expect(page).toHaveURL(/#overview$/)
   await expect(page.getByRole('heading', { name: 'Command overview', exact: true })).toBeVisible()
 
@@ -21,9 +22,13 @@ test('landing page introduces the project and hands over to the dashboard', asyn
   await expect(page.getByRole('heading', { level: 1 })).toContainText('blind spot')
 
   // Workspace cards deep-link into the console.
-  await page.getByRole('link', { name: /Incident Center/ }).click()
-  await expect(page).toHaveURL(/#incidents$/)
-  await expect(page.getByRole('heading', { name: 'Incident center', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: /Network Intelligence/ }).click()
+  await expect(page).toHaveURL(/#network$/)
+  await expect(page.getByRole('heading', { name: 'Network intelligence', exact: true })).toBeVisible()
+
+  await page.goBack()
+  await page.getByRole('link', { name: /Launch Phantom Command/ }).last().click()
+  await expect(page).toHaveURL(/#overview$/)
   expect(errors).toEqual([])
 })
 

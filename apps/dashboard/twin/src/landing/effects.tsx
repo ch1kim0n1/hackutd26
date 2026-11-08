@@ -111,7 +111,7 @@ export function SignalMesh({ className }: { className?: string }) {
         const fade = 1 - Math.sqrt(d2) / LINK
         const near = Math.max(0, 1 - Math.hypot((a.x + b.x) / 2 - mouse.x, (a.y + b.y) / 2 - mouse.y) / FOCUS)
         const hostile = i === 0
-        ctx.strokeStyle = hostile ? `rgba(239,68,68,${fade * .35})` : near > 0 ? `rgba(234,179,8,${fade * (.12 + near * .5)})` : `rgba(168,162,158,${fade * .17})`
+        ctx.strokeStyle = hostile ? `rgba(239,68,68,${fade * .35})` : near > 0 ? `rgba(34,197,94,${fade * (.12 + near * .5)})` : `rgba(168,162,158,${fade * .17})`
         ctx.lineWidth = hostile || near > .3 ? 1 : .6
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
       }
@@ -123,8 +123,8 @@ export function SignalMesh({ className }: { className?: string }) {
           if (p.t >= 1) { if (p.hops < 4 && Math.random() < .7) spawn(p.b, p.hops + 1); return false }
           if ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 > LINK2 * 1.4) return false
           const x = a.x + (b.x - a.x) * p.t, y = a.y + (b.y - a.y) * p.t, red = p.a === 0 || p.b === 0
-          ctx.fillStyle = red ? 'rgba(248,113,113,.95)' : 'rgba(250,204,21,.95)'
-          ctx.shadowColor = red ? '#ef4444' : '#eab308'; ctx.shadowBlur = 10
+          ctx.fillStyle = red ? 'rgba(248,113,113,.95)' : 'rgba(74,222,128,.95)'
+          ctx.shadowColor = red ? '#ef4444' : '#22c55e'; ctx.shadowBlur = 10
           ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill()
           ctx.shadowBlur = 0
           return true
@@ -132,7 +132,7 @@ export function SignalMesh({ className }: { className?: string }) {
       }
       for (let i = 0; i < nodes.length; i++) {
         const n = nodes[i], near = Math.max(0, 1 - Math.hypot(n.x - mouse.x, n.y - mouse.y) / FOCUS)
-        ctx.fillStyle = i === 0 ? '#ef4444' : near > 0 ? `rgba(250,204,21,${.35 + near * .65})` : 'rgba(168,162,158,.45)'
+        ctx.fillStyle = i === 0 ? '#ef4444' : near > 0 ? `rgba(74,222,128,${.35 + near * .65})` : 'rgba(168,162,158,.45)'
         ctx.beginPath(); ctx.arc(n.x, n.y, i === 0 ? 3 : 1.4 + near * 1.4, 0, Math.PI * 2); ctx.fill()
       }
       const phase = (time / 2200) % 1

@@ -18,7 +18,7 @@ export function AnimatedNumber({ value, decimals = 0 }: { value: number; decimal
   }, [value, decimals, reduced])
   return <span ref={element}>{value.toFixed(decimals)}</span>
 }
-export function Sparkline({ values, color = '#eab308' }: { values: number[]; color?: string }) {
+export function Sparkline({ values, color = '#22c55e' }: { values: number[]; color?: string }) {
   const min = Math.min(...values) - 2, range = Math.max(...values) - min + 2
   const path = values.map((v, i) => `${i * 100 / Math.max(1, values.length - 1)},${30 - ((v - min) / range) * 26}`).join(' ')
   return <svg viewBox="0 0 100 34" className="pc-sparkline" aria-hidden="true"><polyline points={path} fill="none" stroke={color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg>
