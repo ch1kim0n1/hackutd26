@@ -24,9 +24,10 @@ export function Empty({ icon, title, detail }: { icon?: ReactNode; title: string
 
 export function ApprovalCard({ approval }: { approval: Approval }) {
   const decide = useCommandStore(store => store.decideApproval)
+  const mode = useCommandStore(store => store.mode)
   const devices = useCommandStore(store => store.state.devices)
   const device = devices.find(item => item.id === approval.targetId)
-  return <div className="sec-approval"><div className="sec-row"><span className="pc-eyebrow">Human authorization</span><Status value={approval.status} /></div><strong>Simulate device isolation</strong><p>{device?.name ?? approval.targetId} · {approval.reason}</p>{approval.status === 'pending' ? <div className="sec-actions"><button className="pc-button sec-approve" onClick={() => decide(approval.id, true)}><Check size={13} />Approve simulation</button><button className="pc-button" onClick={() => decide(approval.id, false)}><X size={13} />Reject</button></div> : <small>Operator decision recorded at {formatTime(approval.decidedAt ?? approval.at)} UTC. Simulation only.</small>}</div>
+  return <div className="sec-approval"><div className="sec-row"><span className="pc-eyebrow">Human authorization</span><Status value={approval.status} /></div><strong>Simulate device isolation</strong><p>{device?.name ?? approval.targetId} · {approval.reason}</p>{approval.status === 'pending' && mode === 'demo' ? <div className="sec-actions"><button className="pc-button sec-approve" onClick={() => decide(approval.id, true)}><Check size={13} />Approve simulation</button><button className="pc-button" onClick={() => decide(approval.id, false)}><X size={13} />Reject</button></div> : approval.status === 'pending' ? <small>Decision via backend outbox — read-only view.</small> : <small>Operator decision recorded at {formatTime(approval.decidedAt ?? approval.at)} UTC. Simulation only.</small>}</div>
 }
 
 export function SignalChart({ device }: { device: Device }) {
