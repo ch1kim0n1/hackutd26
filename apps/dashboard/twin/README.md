@@ -1,31 +1,74 @@
-# UX-28 React/R3F live 3D office digital twin (#28)
+# Phantom Command
 
-Source of truth: `docs/07-COMMAND-CENTER.md`; data contract:
-`apps/glue/twin_feed` (GLUE-04, PR #77) — `FeedItem{kind, ref_id, at,
-provenance, payload, stale}`.
+A complete local cybersecurity command center for the **Phantom Patrol** autonomous rover. Six connected workspaces share a deterministic simulation: **Sense → Detect → Analyze → Investigate → Visualize → Report**.
 
-## Files
+Everything is explicitly **DEMO MODE**. No hardware, network scanner, inference service, account, database, API key, or external HTTP request is required. State is in memory and resets on reload.
 
-- `package.json` — React 18 + three + @react-three/fiber + drei + vite
-- `src/Twin.jsx` — Canvas scene: `RoverMarker` (pose from `rover_pose`
-  telemetry only, STALE flag dims+labels), `IncidentMarker` (click →
-  `onSelectIncident` links incident + evidence), `ZoneAssets` wireframe
-  surveyed zones, 1s poll of `feed.stream(sub_id)`.
+## Run
 
-## Contracts honored
+```sh
+cd apps/dashboard/twin # from the repository root
+npm ci
+npm run dev
+```
 
-- Rover pose derives **only** from telemetry — never fabricated.
-- `stale` items render amber + "STALE" label.
-- Incident markers carry `incident_id` + evidence ref for drilldown.
-- Subscription auth: `feed.subscribe(principal)` server-side; role/
-  scope never client-claimed.
-- No spectrum rendering — RF evidence is #29's drilldown panel.
+Open the URL Vite prints, normally `http://127.0.0.1:5173/`. Supported Node versions: 22.13+, 24 LTS, or 26+; npm 10+. The verified environment is Node 26.12.1 / npm 11.20.0 on macOS arm64.
 
-## NOT verified — needs npm install + live feed
+## Demo walkthrough
 
-- `npm install && npm run dev` requires network + the live
-  `TwinFeed`/SpacetimeDB subscription backend (unmerged #51).
-- No screenshot possible here; acceptance (pose-from-telemetry,
-  stale flag, alert→incident+evidence link) verified by code review
-  against the feed contract, pending live demo.
-- `currentUser()` is a placeholder — wire to session principal.
+1. Leave **Autonomous resolution** selected, choose **4×** or **8×**, and press **Start simulation**.
+2. At simulation time +3 seconds, an unknown BLE signature is observed. The mock agent correlates identity and location, opens an incident, checks policy, and dispatches a bounded inspection.
+3. Watch the rover travel through the mapped corridors in **Digital Twin**. The affected zone, incident timeline, activity trace, and telemetry update together.
+4. The rover collects synthetic RF, camera, and LiDAR evidence. The agent reconciles it against the service fixture, publishes its conclusion, and resolves the incident automatically. No AI prompt is needed.
+5. Choose **AP impersonation** to demonstrate a separate operator approval for simulated isolation. Inspect the evidence in **Incident Center** or approve/reject in **Nemotron Intelligence**. No real network action is sent.
+
+Pause freezes the deterministic clock; Resume continues it; Reset restores the chosen scenario. Scenarios include normal patrol, unknown transmitter, AP impersonation, cabinet tampering, correlated anomalies, and autonomous resolution. **Inject event** introduces additional structured observations; analysis proceeds when the clock is running.
+
+Emergency stop independently latches rover movement and evidence capture while facility monitoring continues. Capture resumes with its remaining active time after **Release stop**; it cannot finish just because the facility clock advanced while stopped. Return home cancels existing missions and queues a home route; it never clears E-stop. An interrupted incident can be reassigned from its dossier with **Reassign inspection**. Checkpoints and the LiDAR map support bounded operator waypoints.
+
+## Workspaces
+
+| Workspace | Implemented behavior |
+|---|---|
+| Command Overview | Shared posture/incident/device metrics, interactive twin preview, live agent feed, ECharts telemetry, incident watch, rover status, movable/resizable React Grid Layout panels |
+| Digital Twin | Occupancy-grid extrusion, 3 zones, 12 racks, 4 APs, 3 monitors, rover geometry, actual mission routes, RF overlays, threat markers, selected entities, isometric/top/orbit/follow cameras and manual orbit |
+| Network Intelligence | AG Grid search, protocol/state filters, sorting, linked selection, RSSI history, risk scores, 32-device React Flow topology and observation stream |
+| Incident Center | Automatic/manual incident creation, severity/status filtering, linked evidence, findings, timeline, related devices, location focus, reassignments and approval history |
+| Rover Operations | Procedural synthetic camera, LiDAR map, waypoint dispatch, battery/position/speed/distance, mission queue, telemetry, E-stop and return home |
+| Nemotron Intelligence | Automatic activity trace, correlation, tool records, findings/confidence, mission decisions, current selection context, policy and human approval controls |
+
+`⌘K` / `Ctrl+K` opens entity/workspace search. Selection persists across workspaces, and operator-created incidents update shared agent context immediately, even before the clock starts. Every workspace has a hash URL (for example, `/#network`); sidebar, search and in-panel navigation support browser Back/Forward and reload. Returning to overview restores the isometric camera. The optional **Context console** uses CopilotKit with a local AG-UI transport to summarize the current shared records; it does not call an LLM. The original integration gallery remains at `/lab.html`; the original JSX demo remains at `/legacy.html`.
+
+## Architecture
+
+- `src/command/model.ts`: typed entities, stable identifiers, separate observations/evidence/findings and UI selection contracts.
+- `fixtures.ts`: 32 entities, historical context, fixed UTC epoch and deterministic telemetry.
+- `engine.ts`: pure immutable simulation transitions, fixed 250 ms steps, bounded grid route planner, mission lifecycle and evidence pipeline.
+- `agents.ts`: structured `MockAgentProvider`, tool registry, policy decisions, shared context store, and a validated future `NemotronAgentProvider`.
+- `event-bus.ts` / `store.ts`: typed event publication and shared Zustand state. UI actions and simulation transitions use one path.
+- `navigation.ts`: synchronizes workspace state with deep links and browser history, including cleanup on unmount.
+- `adapters.ts`: ROS 2 pose subscription, Kismet observation/inventory, structured Nemotron transport, and a server-authorized robotics gateway interface. No adapters are connected in demo mode.
+- `twin/`: occupancy conversion, merged wall geometry, rendering, camera control and accessible entity controls.
+- `workspaces/`, `components/`: product UI, common primitives, GSAP numeric transitions, Motion navigation/activity transitions and secondary CopilotKit context.
+
+Map coordinates are metres: +x → world X, +y → world −Z, vertical → world Y. Zone bounds are `[minX, minY, maxX, maxY]`. The facility is 24×18 m. World geometry comes from a 0.25 m occupancy grid; route planning uses a 0.5 m navigable grid. UI interpolation never modifies observed simulation coordinates.
+
+## Verify
+
+```sh
+npm run check                 # ESLint, Vitest, strict TypeScript, production build
+npx --no-install playwright install chromium # first browser setup only
+npm run test:ui               # full application + retained laboratory/legacy regressions
+npm run preview              # serve the production build
+npm run licenses             # refresh dependency inventory and retained notices
+```
+
+See [VALIDATION.md](VALIDATION.md) for results and known dependency advisories. Browser tests run against the production build, exercise the full autonomous flow, record console errors and external requests, and cover small-desktop/mobile layouts and reduced motion. Screenshots and failure traces are saved in ignored `test-results/`.
+
+The scene caps DPR at 1.5, uses procedural geometry without downloaded models/textures/fonts, merges occupancy cells, and uses low-intensity bloom without multisampling. Reduced motion disables entrance transitions, numeric tweening, scan pulses and camera interpolation. All visual states also have textual controls and status information.
+
+## Real-service integration
+
+Keep the demo as a deterministic contract fixture. Implement the typed adapters behind authenticated server boundaries and translate real source timestamps/frames explicitly. Validate schemas, provenance, authorization, geofences, robot watchdogs and E-stop on the backend. Model output may propose actions; it must not directly actuate hardware or authorize containment. Replace CopilotKit's demo-only in-memory transport with an authenticated runtime when that backend exists.
+
+This deliverable is a complete **simulated frontend**, not a deployment of ROS 2, Kismet, Nemotron inference, production identity, or sponsor compliance. The procedural camera and LiDAR displays are synthetic illustrations, not hardware reconstructions. Large optional CopilotKit/Three/AG Grid chunks and current transitive dependency advisories are recorded in [VALIDATION.md](VALIDATION.md). Retain [THIRD_PARTY_NOTICES.txt](public/THIRD_PARTY_NOTICES.txt) with distributed builds. GSAP uses its standard no-charge license; see the exact licenses in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

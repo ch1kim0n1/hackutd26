@@ -1,0 +1,26 @@
+import type { StoreApi } from 'zustand'
+import { WORKSPACES, type CommandStore, type Workspace } from './model'
+
+/** Keep all navigation sources and browser history on the same workspace. */
+export function connectWorkspaceHistory(store: StoreApi<CommandStore>, browser: Window) {
+  const readLocation = () => {
+    const requested = browser.location.hash.slice(1)
+    const workspace = WORKSPACES.includes(requested as Workspace) ? requested as Workspace : 'overview'
+    if (browser.location.hash !== `#${workspace}`) browser.history.replaceState(browser.history.state, '', `#${workspace}`)
+    store.getState().navigate(workspace)
+  }
+
+  readLocation()
+  const unsubscribe = store.subscribe((current, previous) => {
+    if (current.workspace !== previous.workspace && browser.location.hash !== `#${current.workspace}`) {
+      browser.history.pushState(null, '', `#${current.workspace}`)
+    }
+  })
+  browser.addEventListener('popstate', readLocation)
+  browser.addEventListener('hashchange', readLocation)
+  return () => {
+    unsubscribe()
+    browser.removeEventListener('popstate', readLocation)
+    browser.removeEventListener('hashchange', readLocation)
+  }
+}
