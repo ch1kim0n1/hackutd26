@@ -254,6 +254,12 @@ class Orchestrator:
             self._mirror_incident(event)
         incident_id = event.incident_id or self._ensure_incident(event)
         agent = self._agent_for(incident_id)
+        # Fresh model fork per run: scripted models replay their full
+        # deterministic script on re-investigation (evidence reassessment);
+        # live providers are stateless and unaffected.
+        inner = getattr(agent, "inner", agent)
+        if hasattr(inner, "model"):
+            inner.model = self.state.agent_model()
         brief = self._brief(event)
         result = agent.investigate(brief)
         a = result.inner_result

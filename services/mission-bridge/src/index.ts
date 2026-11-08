@@ -34,7 +34,7 @@
 //   ROVER_EVIDENCE_DIR           — rover inspection artifact root
 //   POLL_MS                      — request/status poll cadence (default 1500)
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 // Reuses the gateway's generated bindings + node_modules (run via
 // `npx tsx` from services/gateway). 'spacetimedb' resolves there only.
@@ -158,8 +158,11 @@ const grantFailed = new Map<string, number>();
 
 function tag(v: any): string {
   if (v === null || v === undefined) return '';
-  if (typeof v === 'string') return v;
-  if (typeof v === 'object' && 'tag' in v) return String(v.tag);
+  // Module enum tags may arrive capitalized ('Completed') depending on the
+  // published module revision — normalize so state machines compare
+  // case-insensitively.
+  if (typeof v === 'string') return v.toLowerCase();
+  if (typeof v === 'object' && 'tag' in v) return String(v.tag).toLowerCase();
   return String(v);
 }
 
@@ -305,7 +308,7 @@ async function proposeForRequest(req: any): Promise<void> {
 
   proposingRequests.add(rid);
   proposingSince.set(rid, Date.now());
-  const expiresMicros = (BigInt(Date.now()) + BigInt(MISSION_TTL_S) * 1_000_000n);
+  const expiresMicros = (BigInt(Date.now()) * 1000n + BigInt(MISSION_TTL_S) * 1_000_000n);
   try {
     await agent.reducers.proposeMission({
       incidentId,
@@ -402,21 +405,29 @@ function isoToMicros(iso: string): bigint {
 
 function findInspectionMeta(missionId: string): any | null {
   if (!EVIDENCE_DIR || !existsSync(EVIDENCE_DIR)) return null;
-  try {
-    for (const zone of readdirSync(EVIDENCE_DIR)) {
-      const zdir = join(EVIDENCE_DIR, zone);
-      let files: string[] = [];
-      try { files = readdirSync(zdir); } catch { continue; }
-      for (const f of files) {
-        if (!f.endsWith('.meta.json')) continue;
+  const scan = (dir: string, depth: number): any | null => {
+    let files: string[] = [];
+    try { files = readdirSync(dir); } catch { return null; }
+    for (const f of files) {
+      const p = join(dir, f);
+      if (f.endsWith('.meta.json')) {
         try {
-          const meta = JSON.parse(readFileSync(join(zdir, f), 'utf8'));
+          const meta = JSON.parse(readFileSync(p, 'utf8'));
           if (meta.mission_id === missionId) return meta;
         } catch { /* skip unreadable */ }
+      } else if (depth > 0) {
+        try {
+          if (statSync(p).isDirectory()) {
+            const hit = scan(p, depth - 1);
+            if (hit) return hit;
+          }
+        } catch { /* skip */ }
       }
     }
-  } catch { /* dir vanished */ }
-  return null;
+    return null;
+  };
+  // Rover layout: <evidence_dir>/inspection/<zone>/insp-<mission>-*.meta.json
+  return scan(EVIDENCE_DIR, 3);
 }
 
 async function onMissionTerminal(m: any): Promise<void> {
@@ -433,7 +444,9 @@ async function onMissionTerminal(m: any): Promise<void> {
   // so Nemotron re-assesses with the real evidence in scope.
   const incidentId = String(m.incidentId ?? '');
   const meta = findInspectionMeta(mid);
-  if (meta && incidentId && grantedIncidents.has(incidentId)) {
+  // ensureGrant is idempotent — covers missions whose incident was granted
+  // by a previous bridge run (in-memory set doesn't survive restarts).
+  if (meta && incidentId && await ensureGrant(incidentId)) {
     const sha = String(meta.sha256 ?? '').toLowerCase();
     if (SHA256_RE.test(sha)) {
       let observed = isoToMicros(String(meta.observed_at ?? meta.received_at ?? ''));
