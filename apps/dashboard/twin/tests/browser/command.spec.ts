@@ -41,7 +41,7 @@ test('six command workspaces render, share selection, and remain local', async (
   page.on('request', request => { if (/^https?:/.test(request.url()) && new URL(request.url()).hostname !== '127.0.0.1') external.push(request.url()) })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Command overview', exact: true })).toBeVisible()
-  await expect(page.getByText('DEMO MODE', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'DEMO', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.pc-preview-scene canvas')).toBeVisible()
   await page.waitForTimeout(250)
   await page.screenshot({ path: 'test-results/command-overview.png', fullPage: true })
