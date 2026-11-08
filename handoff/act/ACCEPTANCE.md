@@ -25,8 +25,10 @@ criteria to merged + open work.
   privileged recovery flow
 - [x] Closed loop — approval→policy→outbox→executor→verify→chat;
   wrong-role/expired/replay/fingerprint denied; verify-fail→FAILED
+- [x] Live approval→containment→verify path — `containment_executor.service`
+  HTTP bridge wires gateway outbox webhook to executor+independent
+  verify; 200 only on VERIFIED (17 pytest incl. live HTTP+auth round-trip)
 - [ ] Real firewall/switch actuation — BLOCKED (no lab network gear)
-- [ ] Live approval→containment→verify demo — BLOCKED
 
 ## Reproduce tests
 

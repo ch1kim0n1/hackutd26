@@ -21,22 +21,33 @@ criteria to merged + open work.
 - [x] Reducer semantics specified — role+incident scope, expected
   version, actor identity, lifecycle, bounded payload, idempotency
   nonces, private-table projections
+- [x] Live SpacetimeDB module deployed — `spacetimedb/` (v2.14.1),
+  20 private tables, ~30 reducers, role-scoped views
+- [x] Live reducers verified — `spacetimedb/tests/smoke.ts` **44/44**
+  on local `sentinel-hive` (authz, dedupe, correlation, SoD approvals,
+  outbox→verify, mission lifecycle incl. mission_status ingest)
+- [x] Two authorized live subscribers — dual-client live chat/projection
+  fan-out exercised in smoke (commander+responder scoped views)
+- [x] Private-table leak tests — scoped view denial verified pre/post
+  `grantIncidentAccess` in smoke; observers cannot see unscoped incidents
 - [x] Vertical slice proves pipeline shape — auth collector →
   normalized obs → dedup → scoped fan-out (7 pytest)
-- [ ] Live SpacetimeDB module + reducers deployed — BLOCKED
-- [ ] Two authorized live subscribers on real DB — BLOCKED
-- [ ] Private-table leak tests on real deployment — BLOCKED
+- [ ] Physical hardware acceptance — human-required (see #39 gate)
 
 ## Reproduce tests
 
 ```sh
+cd spacetimedb && npm run test:smoke                                    # 44 live checks
 cd apps/glue/vertical_slice && PYTHONPATH=src python3 -m pytest tests/ -q  # 7
 cd apps/glue/twin_feed && PYTHONPATH=src python3 -m pytest tests/ -q        # 6
+cd services/gateway && npx tsx test/validate.test.ts                     # 17
 ```
 
 ## Handoff note
 
-The canonical contract is `docs/04-DATA-AND-INTERFACES.md`. All
-subsystem packages implement against it; the SpacetimeDB module is
-the remaining build — schema DDL + reducer functions per the contract,
-then re-run GLUE-01 (#48) against the live DB.
+The canonical contract is `docs/04-DATA-AND-INTERFACES.md`. The live
+module `spacetimedb/` implements it; `services/gateway` + `deploy/` wire
+the authenticated MQTT→ingest path and the seeded demo deployment.
+GLUE spec packages (`apps/glue/*`) model flows and are not yet bound to
+the live views — that binding is follow-on work, not a blocker for the
+DATA gate's software evidence.
