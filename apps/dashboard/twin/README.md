@@ -72,3 +72,19 @@ The scene caps DPR at 1.5, uses procedural geometry without downloaded models/te
 Keep the demo as a deterministic contract fixture. Implement the typed adapters behind authenticated server boundaries and translate real source timestamps/frames explicitly. Validate schemas, provenance, authorization, geofences, robot watchdogs and E-stop on the backend. Model output may propose actions; it must not directly actuate hardware or authorize containment. Replace CopilotKit's demo-only in-memory transport with an authenticated runtime when that backend exists.
 
 This deliverable is a complete **simulated frontend**, not a deployment of ROS 2, Kismet, Nemotron inference, production identity, or sponsor compliance. The procedural camera and LiDAR displays are synthetic illustrations, not hardware reconstructions. Large optional CopilotKit/Three/AG Grid chunks and current transitive dependency advisories are recorded in [VALIDATION.md](VALIDATION.md). Retain [THIRD_PARTY_NOTICES.txt](public/THIRD_PARTY_NOTICES.txt) with distributed builds. GSAP uses its standard no-charge license; see the exact licenses in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+## Live backend mode (issue #98)
+
+The header DEMO/LIVE switch toggles between the deterministic simulation and live backend feeds.
+
+- **DEMO** (default): unchanged offline simulation — scenarios, injection, approvals, rover commands.
+- **LIVE**: read-only view of SpacetimeDB role-scoped views (`src/command/live/`) plus the Python API facade (#96). Demo-mutating controls are disabled; the simulation clock keeps advancing so backend timestamps map to elapsed time correctly.
+
+Configuration (`.env.local`, see `.env.example`):
+- `VITE_SPACETIMEDB_URI` / `VITE_SPACETIMEDB_DATABASE` / `VITE_SPACETIMEDB_TOKEN` — provisioned identity token (admin sees all incidents; see `deploy/seeds/seed.ts` → `deploy/secrets/identities.json`).
+- `VITE_API_BASE` / `VITE_API_POLL_MS` — FastAPI facade for health + investigation activity.
+- `VITE_LIVE_TRANSPORT=fixture` or `?live=fixture` — replays recorded rows labelled **REPLAY** (tests/offline demos).
+
+Live entities carry `LIVE`/`REPLAY` provenance prefixes in generated detail text — never conflated with DEMO. Entity collections are rebuilt wholesale from subscribed views on every update, so reconnect/resync/refresh cannot duplicate rows; the mode choice persists in `localStorage` (`phantom-command-mode`).
+
+Unimplemented surfaces (later issues): live command path (approvals/missions/waypoints go through the backend outbox, not this UI), per-device RF telemetry, rover pose telemetry, API-universe incidents (separate store from SpacetimeDB incidents), Nemotron inference (#111).

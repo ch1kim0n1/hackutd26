@@ -25,8 +25,12 @@ export interface CommandState {
   findings: Finding[]; activity: AgentRecord[]; missions: Mission[]; approvals: Approval[]; events: CommandEvent[];
   rover: Rover; telemetry: TelemetrySample[]; sequence: number; scenarioStep: number; tickRemainder?: number;
 }
+export type CommandMode = 'demo' | 'live'
+export type LivePhase = 'off' | 'connecting' | 'online' | 'degraded' | 'error'
 export interface CommandStore {
   state: CommandState; workspace: Workspace; selectedId: string | null; camera: CameraMode;
+  mode: CommandMode; livePhase: LivePhase; liveDetail: string;
+  setMode: (mode: CommandMode) => void; applyLive: (snapshot: import('./live/types').LiveSnapshot) => void;
   navigate: (workspace: Workspace) => void; select: (id: string | null) => void; setCamera: (camera: CameraMode) => void;
   start: () => void; pause: () => void; reset: (scenario?: ScenarioId) => void; setSpeed: (speed: number) => void; setScenario: (scenario: ScenarioId) => void;
   tick: (seconds: number) => void; inject: (kind: ObservationKind) => void;
