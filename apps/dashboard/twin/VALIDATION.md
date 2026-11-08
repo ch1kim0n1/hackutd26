@@ -25,18 +25,22 @@ Screenshots from the production build are saved in ignored `test-results/` and h
 
 Performance review: procedural geometry needs no remote assets; the 407 occupied cells become 11 wall prisms. DPR is capped at 1.5; bloom uses no multisampling; one spatial canvas is mounted per workspace. Component libraries and the optional CopilotKit console load on demand. WebGL tests use Chromium's software renderer; real-device GPU frame rates and other browser engines have not been benchmarked. Reduced-motion checks cover CSS, Motion, GSAP and Three camera/scan behavior.
 
-## Dependency audit — unresolved
+## Dependency audit — triaged (#128, 2026-11-08)
 
 `npm audit --json` reported **34 affected-package entries: 13 high, 13 moderate and 8 low**, with no critical entries. `npm audit --omit=dev --json` reported **19 entries: 13 high and 6 low**. These are propagated package counts, not 34 distinct advisories. The four root advisories are:
 
-| Package | Advisory | Scope |
+| Package | Advisory | Triage (#128) |
 |---|---|---|
-| zod `<4.6.6` | [Oversized constrained collections can exhaust memory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) | CopilotKit / AG-UI transitive Zod 3 dependencies; the application's direct Zod 4.6.7 is outside the reported range |
-| katex `<0.18.2` | [Prototype pollution can bypass trust restrictions](https://github.com/advisories/GHSA-238p-pmpm-9mq7) | CopilotKit's Markdown/diagram renderer dependencies |
-| minimatch `>=7 <11.0.1` | [Globparts amplification denial of service](https://github.com/advisories/GHSA-g3hv-75wg-m249) | Development tooling |
-| deepmerge `>=4.2.0 <=4.3.1` | [Prototype poisoning of returned objects](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) | shadcn development CLI / registry |
+| zod `<4.6.6` | [Oversized constrained collections can exhaust memory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) | **upstream-blocked → accepted-risk.** Only inside CopilotKit/AG-UI transitive Zod 3 trees; direct `zod@4.6.7` is outside the range. Latest `@copilotkit/react-core@1.85.0` still carries the vulnerable tree; the only audit-reported fix is a breaking CopilotKit contract change (non-goal). Accepted because the foundation consumes fixed local fixtures and in-memory transport only — no untrusted agent events, model output, or backend data are validated by these trees. |
+| katex `<0.18.2` | [Prototype pollution can bypass trust restrictions](https://github.com/advisories/GHSA-238p-pmpm-9mq7) | **upstream-blocked → accepted-risk.** Transitive via CopilotKit markdown/diagram renderers (`@copilotkit/react-core@1.85.0` latest still affected). Same trust boundary as above: renderer never receives untrusted content in the foundation. |
+| minimatch `>=7 <11.0.1` | [Globparts amplification denial of service](https://github.com/advisories/GHSA-g3hv-75wg-m249) | **upstream-blocked → accepted-risk.** Dev-only (eslint/typescript-eslint/ts-morph pin `^10`; installed 10.2.6). Fix requires minimatch 11.x which no parent range accepts; not shipped in the bundle. |
+| deepmerge `>=4.2.0 <=4.3.1` | [Prototype poisoning of returned objects](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) | **upstream-blocked → accepted-risk.** Dev-only via `shadcn@4.23.0` (latest) → `@shadcn/registry`; **no fixed release exists** (latest deepmerge is 4.3.1). Not shipped. |
 
-The requested stable SDKs install and run together, but their dependency trees are not audit-clean. No forced Zod major-version override or `npm audit fix --force` was applied: those would change upstream API contracts and the verified compatibility set. This foundation uses fixed local fixtures and an in-memory transport. Resolve or re-evaluate these advisories with compatible upstream patches before accepting untrusted agent events, model output or backend data. Re-run both audit commands when dependencies change; do not interpret the successful build as a security review.
+**Safe-upgrade attempt (#128):** all direct dependencies are already at latest (`@copilotkit/react-core`/`react-ui` 1.85.0, `zod` 4.6.7, `shadcn` 4.23.0). `npm audit fix` (non-force) was run: it only deduplicated `react-dom`/`scheduler` in the lockfile (20 added lines) and changed **no** advisory counts — `npm audit --omit=dev` still reports 19 (13 high, 6 low). `npm audit fix --force` was NOT run: its only path is a breaking CopilotKit downgrade/contract change, explicitly out of scope.
+
+**Re-verification (#128):** `npx vitest run` 56/56 pass; `npm run build` succeeds; pytest sweep all green (rover 160+3 skip, autonomy 18, api 18, nemotron_client 28, investigator 8, hardening 15, pucks 16, sdr 10, correlator 11, wand 7). `npm run check` fails at lint on **7 pre-existing unused-var errors on main** (unrelated to dependencies; filed as issue #136 — `src/`/`tests/` are outside this issue's ownership).
+
+**Standing rule (unchanged):** do not interpret the successful build as a security review. Re-run `npm audit` and `npm audit --omit=dev` when dependencies change; resolve or re-evaluate these advisories with compatible upstream patches before accepting untrusted agent events, model output or backend data.
 
 ## Remaining integration and distribution limits
 
