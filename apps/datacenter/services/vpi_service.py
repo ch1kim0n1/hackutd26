@@ -1,13 +1,16 @@
 """Mock virtual-Pi service (#101).
 
 Per-node HTTP stand-in with synthetic data only. Endpoints:
-  GET /health    -> liveness + node identity
-  GET /metrics   -> synthetic telemetry series
-  GET /config    -> live config snapshot (posture engine input)
-  GET /services  -> declared service list
+  GET  /health    -> liveness + node identity (503 when isolated)
+  GET  /metrics   -> synthetic telemetry series
+  GET  /config    -> live config snapshot (posture engine input)
+  GET  /services  -> declared service list
+  POST /admin/isolate  {"action_type": ...} -> quarantine node (#109)
+  POST /admin/release  -> clear quarantine
 
 NODE_ID env selects the profile from datacenter.nodes.PI_PROFILES.
-Read-only; no state mutation, no credentials, no real data.
+Read-only except /admin/* which models lab quarantine; no credentials,
+no real data. Isolated network only — never expose to internet.
 """
 from __future__ import annotations
 
@@ -42,6 +45,7 @@ def _config_snapshot(profile) -> dict:
 
 class Handler(BaseHTTPRequestHandler):
     profile = None  # set by server factory
+    isolated: dict = {}  # class-level per-server via Bound override
 
     def _json(self, code: int, obj: dict) -> None:
         body = json.dumps(obj, separators=(",", ":")).encode()
@@ -53,12 +57,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):  # noqa: N802
         p = self.profile
+        iso = self.isolated.get(p.node_id)
         routes = {
-            "/health": lambda: {
-                "status": "ok", "node_id": p.node_id,
-                "role": p.role.value, "zone_id": p.zone_id,
-                "synthetic": True,
-            },
+            "/health": lambda: (
+                {"status": "isolated", "node_id": p.node_id,
+                 "action_type": iso, "synthetic": True}
+                if iso else {
+                    "status": "ok", "node_id": p.node_id,
+                    "role": p.role.value, "zone_id": p.zone_id,
+                    "synthetic": True,
+                }),
             "/metrics": lambda: {
                 "node_id": p.node_id, "synthetic": True,
                 **_BASE_METRICS.get(p.node_id, {}),
@@ -79,7 +87,38 @@ class Handler(BaseHTTPRequestHandler):
         }
         handler = routes.get(self.path.split("?")[0])
         if handler:
-            self._json(200, handler())
+            code = 503 if (self.path.split("?")[0] == "/health" and iso) else 200
+            self._json(code, handler())
+        else:
+            self._json(404, {"error": "not_found", "synthetic": True})
+
+    def do_POST(self):  # noqa: N802
+        """Lab quarantine control (#109). Whitelisted action types only —
+        mirrors the module ActionType enum; anything else rejected."""
+        p = self.profile
+        allowed = {"isolate_endpoint", "quarantine_vlan",
+                   "disable_switch_port", "block_ssid",
+                   "revoke_credential", "collect_forensics"}
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}")
+        except Exception:
+            body = {}
+        path = self.path.split("?")[0]
+        if path == "/admin/isolate":
+            at = body.get("action_type", "")
+            if at not in allowed:
+                self._json(400, {"error": "action_type_not_approved",
+                                 "synthetic": True})
+                return
+            self.isolated[p.node_id] = at
+            self._json(200, {"ok": True, "node_id": p.node_id,
+                             "isolated": True, "action_type": at,
+                             "synthetic": True})
+        elif path == "/admin/release":
+            self.isolated.pop(p.node_id, None)
+            self._json(200, {"ok": True, "node_id": p.node_id,
+                             "isolated": False, "synthetic": True})
         else:
             self._json(404, {"error": "not_found", "synthetic": True})
 
@@ -94,7 +133,7 @@ def make_server(node_id: str, host: str = "0.0.0.0", port: int = 8080):
                          f"choices: {sorted(PROFILES)}")
 
     class Bound(Handler):
-        pass
+        isolated = {}
     Bound.profile = profile
     return ThreadingHTTPServer((host, port), Bound)
 
