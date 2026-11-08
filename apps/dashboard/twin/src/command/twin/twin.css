@@ -7,6 +7,13 @@
 .twin-scene-status { left: 20px; top: 18px; display: flex; align-items: center; gap: 8px; font: 9px ui-monospace, monospace; letter-spacing: 1.2px; color: #b8b0a5; pointer-events: none; }
 .twin-scene-status i { color: #716c65; margin-left: 9px; font-style: normal; }
 .twin-status-dot { width: 5px; height: 5px; border-radius: 50%; background: #bfb6ab; box-shadow: 0 0 10px #bfb6ab66; }
+.twin-map-status { top: 36px; }
+.twin-map-status.is-stale .twin-status-dot, .twin-map-status.is-stale { color: #fb923c; }
+.twin-map-status.is-stale .twin-status-dot { background: #fb923c; box-shadow: 0 0 10px #fb923c66; }
+.twin-anchor-label { font: 8px ui-monospace, monospace; letter-spacing: .8px; color: #d6cfc4; background: #161514d9; border: 1px solid #3f3a35; border-radius: 3px; padding: 2px 5px; white-space: nowrap; pointer-events: none; }
+.twin-anchor-label.is-unregistered { color: #fb923c; border-color: #fb923c55; }
+.twin-feed-note { font-size: 10px; line-height: 1.55; color: #8d867d; margin: 10px 0 0; }
+.twin-anchor-count { font: 8px ui-monospace, monospace; letter-spacing: .7px; color: #716c65; margin-top: 12px; text-transform: uppercase; }
 .twin-scene-bearing { top: 15px; right: 20px; display: flex; flex-direction: column; align-items: center; gap: 1px; font: 10px ui-monospace, monospace; color: #aca39a; pointer-events: none; }
 .twin-scene-bearing span:nth-child(2) { color: #eab308; font-size: 25px; line-height: 29px; }
 .twin-scene-bearing span:last-child { font-size: 7px; color: #706a64; letter-spacing: 1px; }
@@ -38,6 +45,7 @@
 .twin-fallback span { max-width: 360px; line-height: 1.7; }
 .twin-scene-compact { min-height: 300px; }
 .twin-scene-compact .twin-scene-status { left: 16px; top: 15px; }
+.twin-scene-compact .twin-map-status { display: none; }
 .twin-scene-compact .twin-camera-controls { left: 15px; bottom: 48px; }
 .twin-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 278px; gap: 16px; align-items: stretch; min-width: 0; }
 .twin-main-panel { border: 1px solid #35302b; background: #181715; border-radius: 7px; min-width: 0; overflow: hidden; }

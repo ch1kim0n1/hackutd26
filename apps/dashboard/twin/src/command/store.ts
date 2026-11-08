@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { advanceSimulation, changeSimulation, createInitialState, createOperatorIncident, decideApproval, injectObservation, requestReturnHome, requestWaypoint, retryInspection, setEmergencyStop } from './engine'
+import { advanceSimulation, changeSimulation, createInitialState, createOperatorIncident, decideApproval, injectObservation, requestReturnHome, requestWaypoint, retryInspection, setEmergencyStop, withTwinFeed } from './engine'
 import { commandEventBus } from './event-bus'
 import { AgentContextStore } from './agents'
 import { createLiveDeps, LiveSync, mapSnapshot } from './live'
@@ -81,7 +81,7 @@ export const useCommandStore = create<CommandStore>((set, get) => {
     setScenario: scenario => { if (liveOnly() || !['patrol', 'unknown', 'impersonation', 'tamper', 'correlated', 'resolution'].includes(scenario)) return; agentContextStore.clear(); set({ state: createInitialState(scenario), selectedId: null }) },
     tick: seconds => update(state => liveOnly()
       ? { ...state, elapsed: state.elapsed + seconds }
-      : advanceSimulation(state, seconds)),
+      : withTwinFeed(advanceSimulation(state, seconds))),
     inject: kind => update(state => liveOnly() ? state : injectObservation(state, kind)),
     emergencyStop: () => { if (!liveOnly()) update(state => setEmergencyStop(state, true)) },
     releaseStop: () => { if (!liveOnly()) update(state => setEmergencyStop(state, false)) },

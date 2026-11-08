@@ -16,14 +16,33 @@ export interface Finding { id: string; incidentId: string; at: number; title: st
 export interface AgentRecord { id: string; at: number; kind: 'observation' | 'correlation' | 'tool' | 'decision' | 'finding' | 'status'; title: string; detail: string; incidentId?: string; tool?: string; outcome?: string }
 export interface Mission { id: string; title: string; type: 'patrol' | 'investigate' | 'waypoint' | 'return'; status: 'queued' | 'en_route' | 'collecting' | 'complete' | 'cancelled'; target: Point; zoneId?: string; incidentId?: string; progress: number; route?: Point[]; routeIndex?: number; routeLength?: number; travelled?: number; collectingAt?: number; collectionElapsed?: number }
 export interface Approval { id: string; at: number; incidentId: string; action: 'isolate-device'; targetId: string; reason: string; status: 'pending' | 'approved' | 'rejected'; decidedAt?: number }
-export interface Rover { position: Point; heading: number; speed: number; battery: number; stopped: boolean; missionId: string | null; distance: number; lidar: number[]; stale?: boolean }
+export interface Rover { position: Point; heading: number; speed: number; battery: number; stopped: boolean; missionId: string | null; distance: number; lidar: number[]; stale?: boolean; frameId?: string; poseAt?: number; provenance?: string }
+export type TwinProvenance = 'LIVE' | 'REPLAY' | 'DEMO'
+/** Latest occupancy-grid snapshot for one frame_id, normalized to
+ * canonical cells (-1 unknown | 0 free | 100 occupied). origin is
+ * facility-frame (registration already applied). Heights rendered from
+ * this map are INFERRED — never LiDAR/surveyed measurements. */
+export interface TwinOccupancyMap {
+  frameId: string; revision: number; resolutionM: number
+  origin: Point; width: number; height: number
+  timestampMicros: number; provenance: TwinProvenance
+  registered: boolean; registration: 'identity' | 'static-offset' | 'unregistered'
+  cells: Int8Array
+  unknown: number; free: number; occupied: number
+  stale: boolean; ageSeconds: number
+}
+/** Registered (surveyed) position of an edge device — pucks/Pi-class
+ * units — expressed in facility coordinates. */
+export interface TwinAnchor { id: string; x: number; y: number; label?: string; frameId: string }
+export interface TwinFeedState { maps: TwinOccupancyMap[]; anchors: TwinAnchor[] }
+export const EMPTY_TWIN_FEED: TwinFeedState = { maps: [], anchors: [] }
 export interface TelemetrySample { at: number; traffic: number; signals: number; cpu: number; latency: number }
 export interface CommandEvent { id: string; at: number; type: string; entityId?: string; detail: string }
 export interface CommandState {
   elapsed: number; speed: number; simulation: 'ready' | 'running' | 'paused'; scenario: ScenarioId;
   zones: Zone[]; devices: Device[]; observations: Observation[]; incidents: Incident[]; evidence: Evidence[];
   findings: Finding[]; activity: AgentRecord[]; missions: Mission[]; approvals: Approval[]; events: CommandEvent[];
-  rover: Rover; telemetry: TelemetrySample[]; sequence: number; scenarioStep: number; tickRemainder?: number;
+  rover: Rover; telemetry: TelemetrySample[]; twinFeed: TwinFeedState; sequence: number; scenarioStep: number; tickRemainder?: number;
 }
 export type CommandMode = 'demo' | 'live'
 export type LivePhase = 'off' | 'connecting' | 'online' | 'degraded' | 'error'
