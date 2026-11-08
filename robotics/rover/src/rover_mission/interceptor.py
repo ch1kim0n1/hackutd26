@@ -107,6 +107,9 @@ class Interceptor:
         self.iface = iface
         self.channel = channel
         self.secret = secret
+        # seq must be monotonic ACROSS restarts or the reducer rejects
+        # observations as replays. monotonic_ns is strictly increasing;
+        # micros keeps it in u64 range for the contract.
         self._seq = 0
         self._seen: dict[str, float] = {}
         self.on_frame = on_frame
@@ -164,7 +167,11 @@ class Interceptor:
         if not self._should_emit(key):
             return
 
-        self._seq += 1
+        # epoch micros: monotonic across restboots (unlike monotonic_ns);
+        # NTP backward jumps are the accepted residual risk, guarded
+        # within-process by the max() below
+        now_us = time.time_ns() // 1000
+        self._seq = max(now_us, self._seq + 1)
         obs = build_observation(
             self.device_id, self.zone_id, kind, data, self._seq, self.secret
         )

@@ -40,5 +40,8 @@ add device-rover-01 DEVICE_ROVER_01_PASSWORD
 add device-puck-wifi-01 DEVICE_PUCK_WIFI_01_PASSWORD
 add device-kismet-01 DEVICE_KISMET_01_PASSWORD
 add device-sdr-01 DEVICE_SDR_01_PASSWORD
+add device-puck-b-01 DEVICE_PUCK_B_01_PASSWORD
+add device-puck-c-01 DEVICE_PUCK_C_01_PASSWORD
+add device-datacenter-sim DEVICE_DATACENTER_SIM_PASSWORD
 
 echo "wrote $OUT (gitignored)"

@@ -29,3 +29,19 @@ topic read sentinel/v1/kismet-01/command
 user device-sdr-01
 topic write sentinel/v1/sdr-01/telemetry
 topic read sentinel/v1/sdr-01/command
+
+user device-puck-b-01
+topic write sentinel/v1/puck-b-01/telemetry
+topic read sentinel/v1/puck-b-01/command
+
+user device-puck-c-01
+topic write sentinel/v1/puck-c-01/telemetry
+topic read sentinel/v1/puck-c-01/command
+
+# virtual data-center simulator: one lab identity writing the four
+# vpi-* telemetry topics (simulator is a single process, not 4 devices)
+user device-datacenter-sim
+topic write sentinel/v1/vpi-compute-01/telemetry
+topic write sentinel/v1/vpi-network-01/telemetry
+topic write sentinel/v1/vpi-sensor-01/telemetry
+topic write sentinel/v1/vpi-mgmt-01/telemetry

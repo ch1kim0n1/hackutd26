@@ -51,12 +51,29 @@ class SimPublisher:
         sim: Optional[DataCenterSim] = None,
         secrets: Optional[dict[str, bytes]] = None,
         transport: Optional[Callable[[dict, str], None]] = None,
+        state_file: Optional[str] = None,
     ):
-        """secrets: {device_id: hmac_secret}; transport(obs, topic)."""
+        """secrets: {device_id: hmac_secret}; transport(obs, topic).
+        state_file persists last seq per device so restarts don't emit
+        replay-rejected sequences."""
         self.sim = sim or DataCenterSim()
         self.secrets = secrets or {}
         self.transport = transport or self._default_transport()
         self.published = 0
+        self._state_file = state_file
+        self._last_seq: dict[str, int] = {}
+        if state_file and os.path.exists(state_file):
+            try:
+                self._last_seq = {
+                    k: int(v) for k, v in
+                    json.load(open(state_file)).items()}
+            except Exception:
+                self._last_seq = {}
+        # reseed sim node seqs above persisted values
+        for nid, last in self._last_seq.items():
+            node = self.sim.nodes.get(nid)
+            if node is not None:
+                node.seq = max(node.seq, last)
 
     @staticmethod
     def _default_transport() -> Callable[[dict, str], None]:
@@ -76,7 +93,16 @@ class SimPublisher:
             topic = f"sentinel/v1/{obs['device_id']}/telemetry"
             self.transport(obs, topic)
             self.published += 1
+            self._last_seq[obs["device_id"]] = obs["seq"]
             out.append(obs)
+        if self._state_file and out:
+            try:
+                tmp = self._state_file + ".tmp"
+                with open(tmp, "w") as fh:
+                    json.dump(self._last_seq, fh)
+                os.replace(tmp, self._state_file)
+            except OSError:
+                pass
         return out
 
     def run(self, ticks: int) -> list[dict]:

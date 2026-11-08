@@ -74,3 +74,24 @@ def test_console_transport_shape(capsys):
     out = json.loads(capsys.readouterr().out.strip())
     assert out["topic"] == "sentinel/v1/x/telemetry"
     assert out["obs"] == {"a": 1}
+
+
+def test_seq_persists_across_restart(tmp_path):
+    """Restarted publisher must not re-emit low seqs (replay reject)."""
+    state = str(tmp_path / "seq.json")
+    sent1 = []
+    p1 = SimPublisher(sim=DataCenterSim(seed=9), secrets={},
+                      transport=lambda o, t: sent1.append(o),
+                      state_file=state)
+    p1.run(20)
+    max_by_node = {}
+    for o in sent1:
+        max_by_node[o["device_id"]] = max(
+            max_by_node.get(o["device_id"], 0), o["seq"])
+    sent2 = []
+    p2 = SimPublisher(sim=DataCenterSim(seed=9), secrets={},
+                      transport=lambda o, t: sent2.append(o),
+                      state_file=state)
+    p2.run(10)
+    for o in sent2:
+        assert o["seq"] > max_by_node[o["device_id"]]

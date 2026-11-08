@@ -114,25 +114,46 @@ async function main() {
   }
   console.log('roles: seeded');
 
-  // 3) lab registry
-  await admin.conn.reducers.upsertZone({
-    id: 'rack-01',
-    name: 'Server Rack A',
-    boundsJson: '{"x":0,"y":0,"w":10,"h":10}',
-    waypoints: ['tag-rack-01', 'tag-rack-02', 'tag-door-01'],
-  });
-  await admin.conn.reducers.upsertZone({
-    id: 'lab-floor',
-    name: 'Lab Floor',
-    boundsJson: '{"x":0,"y":0,"w":20,"h":20}',
-    waypoints: ['tag-lab-01', 'tag-lab-02'],
-  });
+  // 3) lab registry — zone ids must cover every emitter: datacenter sim
+  // (rack-01/lab-b/bench-row/lobby), rover routes.json
+  // (lobby/rack-01/desk-row-a/cabinet-01), pucks (rack-01/lab-bench/
+  // cabinet-01), mission-shim waypoints (wp-* rover ids + tag-* ids).
+  const ZONES: Array<[string, string, string, string[]]> = [
+    ['rack-01', 'Server Rack A', '{"x":0,"y":0,"w":10,"h":10}',
+     ['tag-rack-01', 'tag-rack-02', 'tag-door-01',
+      'wp-rack-a', 'wp-rack-b', 'wp-cabinet']],
+    ['lab-floor', 'Lab Floor', '{"x":0,"y":0,"w":20,"h":20}',
+     ['tag-lab-01', 'tag-lab-02', 'wp-desk-1', 'wp-desk-2']],
+    ['lab-b', 'Network Lab B', '{"x":-3,"y":-2,"w":3,"d":2}',
+     ['tag-lab-b-01', 'wp-desk-1']],
+    ['bench-row', 'Engineer Bench Row', '{"x":-1,"y":0,"w":5,"d":1.5}',
+     ['wp-desk-1', 'wp-desk-2']],
+    ['lobby', 'Lobby and Check-in', '{"x":0,"y":4,"w":4,"d":2}',
+     ['wp-home', 'wp-lobby-n']],
+    ['cabinet-01', 'Cabinet Row', '{"x":2,"y":3,"w":2,"d":1}',
+     ['wp-cabinet', 'tag-door-01']],
+    ['desk-row-a', 'Desk Row A', '{"x":0,"y":5,"w":6,"d":2}',
+     ['wp-desk-1', 'wp-desk-2']],
+    ['lab-bench', 'Lab Bench', '{"x":-2,"y":1,"w":3,"d":2}',
+     ['tag-lab-01']],
+  ];
+  for (const [id, name, bounds, wps] of ZONES) {
+    await admin.conn.reducers.upsertZone({
+      id, name, boundsJson: bounds, waypoints: wps,
+    });
+  }
   const devices: Array<[string, string, string]> = [
     ['puck-a-01', 'puck_contact', 'rack-01'],
     ['puck-wifi-01', 'puck_wifi', 'rack-01'],
-    ['rover-01', 'rover', 'lab-floor'],
+    ['puck-b-01', 'puck_contact', 'cabinet-01'],
+    ['puck-c-01', 'puck_ble', 'lab-b'],
+    ['rover-01', 'rover', 'lobby'],
     ['kismet-01', 'kismet', 'lab-floor'],
     ['sdr-01', 'sdr', 'lab-floor'],
+    ['vpi-compute-01', 'other', 'rack-01'],
+    ['vpi-network-01', 'other', 'lab-b'],
+    ['vpi-sensor-01', 'other', 'rack-01'],
+    ['vpi-mgmt-01', 'other', 'bench-row'],
   ];
   for (const [did, dtype, zone] of devices) {
     await admin.conn.reducers.upsertDevice({ id: did, type: dtype, zoneId: zone, firmware: '0.1.0-seed' });
