@@ -11,6 +11,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
+import { createHmac } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,6 +20,7 @@ const require = createRequire(import.meta.url);
 const createBroker = (require('aedes') as any).createBroker as () => any;
 import mqtt from 'mqtt';
 import { DbConnection } from '../bindings/index';
+import { canonicalJson } from '../src/validate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -30,6 +32,24 @@ const tokens: Record<string, string> = JSON.parse(
 );
 for (const role of ['gateway', 'executor', 'commander', 'responder']) {
   if (!tokens[role]) throw new Error(`GATEWAY_TEST_TOKENS missing "${role}"`);
+}
+
+// puck-a-01 is HMAC-keyed in this test gateway: envelopes for it MUST carry
+// a valid signature (docs/13 §1). Sign exactly like sensors/pucks
+// Observation.canonical() + auth.sign: HMAC-SHA256 over the 8 signed fields
+// as sorted-key compact JSON.
+const DEVICE_HMAC = 'gw-test-device-secret';
+const SIGNED_FIELDS = [
+  'schema_version', 'event_id', 'device_id', 'seq',
+  'observed_at', 'kind', 'zone_id', 'data',
+] as const;
+function signEnvelope(env: Record<string, unknown>): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  for (const f of SIGNED_FIELDS) body[f] = env[f];
+  return {
+    ...env,
+    signature: createHmac('sha256', DEVICE_HMAC).update(canonicalJson(body)).digest('hex'),
+  };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -81,6 +101,7 @@ async function main() {
       MQTT_TOPIC_PREFIX: 'sentinel/v1',
       GATEWAY_HEALTH_PORT: String(healthPort),
       GATEWAY_STATE_FILE: stateFile,
+      GATEWAY_DEVICE_HMAC_KEYS: JSON.stringify({ 'puck-a-01': DEVICE_HMAC }),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -103,10 +124,21 @@ async function main() {
   const responder = await connect(tokens.responder);
   commander.subscriptionBuilder().subscribe((tb) => tb.incidentFeed.build());
   commander.subscriptionBuilder().subscribe((tb) => tb.observationFeed.build());
+  commander.subscriptionBuilder().subscribe((tb) => tb.deviceFeed.build());
   commander.subscriptionBuilder().subscribe((tb) => tb.missionFeed.build());
   commander.subscriptionBuilder().subscribe((tb) => tb.actionFeed.build());
   commander.subscriptionBuilder().subscribe((tb) => tb.pendingApprovals.build());
   await sleep(800);
+
+  // seq must stay ahead of the device's persisted lastSeq or the reducer
+  // rejects it as stale — read the live value so re-runs against the same
+  // database keep working.
+  const seqBase = (() => {
+    for (const d of commander.db.deviceFeed.iter() as Iterable<any>) {
+      if (d.id === 'puck-a-01') return Number(d.lastSeq) + 1;
+    }
+    return 1;
+  })();
 
   // --- MQTT publisher ---
   const mqttClient = mqtt.connect(`tcp://127.0.0.1:${mqttPort}`, { clientId: `test-pub-${process.pid}` });
@@ -123,34 +155,53 @@ async function main() {
   const baseEnv = {
     schema_version: 1,
     device_id: 'puck-a-01',
-    seq: 500,
+    seq: seqBase,
     observed_at: nowIso,
     kind: 'contact_open',
     zone_id: 'rack-01',
     data: { switch: 'reed-9', state: 'open' },
     trace_id: 'gw-test-1',
   };
+  const hasEvent = async (eventId: string) =>
+    [...(await commander.db.observationFeed.iter())].some(
+      (o: any) => o.eventId === eventId
+    );
 
-  // 1) valid telemetry -> observation lands via gateway role
-  await pub('sentinel/v1/puck-a-01/telemetry', { ...baseEnv, event_id: 'gw-evt-1' });
+  // 1) valid signed telemetry -> observation lands via gateway role
+  await pub('sentinel/v1/puck-a-01/telemetry', signEnvelope({ ...baseEnv, event_id: 'gw-evt-1' }));
   await sleep(1200);
   const obs = [...(await commander.db.observationFeed.iter())].filter(
     (o: any) => o.eventId === 'gw-evt-1'
   );
-  check('valid telemetry ingested', obs.length === 1, `got ${obs.length}`);
+  check('valid signed telemetry ingested', obs.length === 1, `got ${obs.length}`);
   check('trust tier gateway_validated', (obs[0] as any)?.trustTier?.tag?.toLowerCase?.().includes('gateway') ?? false);
 
   // 2) duplicate event_id -> idempotent, still one row
-  await pub('sentinel/v1/puck-a-01/telemetry', { ...baseEnv, event_id: 'gw-evt-1' });
+  await pub('sentinel/v1/puck-a-01/telemetry', signEnvelope({ ...baseEnv, event_id: 'gw-evt-1' }));
   await sleep(800);
   const obs2 = [...(await commander.db.observationFeed.iter())].filter(
     (o: any) => o.eventId === 'gw-evt-1'
   );
   check('duplicate event_id deduped', obs2.length === 1);
 
+  // 2b) bad signature on keyed device -> rejected
+  await pub('sentinel/v1/puck-a-01/telemetry', {
+    ...baseEnv, event_id: 'gw-evt-badsig', seq: seqBase + 1,
+    signature: 'a'.repeat(64),
+  });
+  await sleep(800);
+  check('bad signature rejected', !(await hasEvent('gw-evt-badsig')));
+
+  // 2c) missing signature on keyed device -> rejected
+  await pub('sentinel/v1/puck-a-01/telemetry', {
+    ...baseEnv, event_id: 'gw-evt-nosig', seq: seqBase + 2,
+  });
+  await sleep(800);
+  check('missing signature rejected', !(await hasEvent('gw-evt-nosig')));
+
   // 3) forged device_id (payload != topic) -> rejected
   await pub('sentinel/v1/puck-a-01/telemetry', {
-    ...baseEnv, event_id: 'gw-evt-forge', device_id: 'puck-wifi-01', seq: 501,
+    ...baseEnv, event_id: 'gw-evt-forge', device_id: 'puck-wifi-01', seq: seqBase + 3,
   });
   await sleep(800);
   const forged = [...(await commander.db.observationFeed.iter())].filter(
@@ -160,7 +211,7 @@ async function main() {
 
   // 4) unknown kind -> rejected
   await pub('sentinel/v1/puck-a-01/telemetry', {
-    ...baseEnv, event_id: 'gw-evt-badkind', kind: 'rm_rf', seq: 502,
+    ...baseEnv, event_id: 'gw-evt-badkind', kind: 'rm_rf', seq: seqBase + 4,
   });
   await sleep(800);
   const badKind = [...(await commander.db.observationFeed.iter())].filter(
@@ -170,7 +221,7 @@ async function main() {
 
   // 5) oversized data -> rejected
   await pub('sentinel/v1/puck-a-01/telemetry', {
-    ...baseEnv, event_id: 'gw-evt-big', seq: 503, data: { blob: 'x'.repeat(9000) },
+    ...baseEnv, event_id: 'gw-evt-big', seq: seqBase + 5, data: { blob: 'x'.repeat(9000) },
   });
   await sleep(800);
   const big = [...(await commander.db.observationFeed.iter())].filter(
@@ -180,7 +231,7 @@ async function main() {
 
   // 6) wrong schema_version -> rejected
   await pub('sentinel/v1/puck-a-01/telemetry', {
-    ...baseEnv, event_id: 'gw-evt-v2', schema_version: 2, seq: 504,
+    ...baseEnv, event_id: 'gw-evt-v2', schema_version: 2, seq: seqBase + 6,
   });
   await sleep(800);
   const v2 = [...(await commander.db.observationFeed.iter())].filter(
@@ -189,14 +240,16 @@ async function main() {
   check('bad schema_version rejected', v2.length === 0);
 
   // --- mission downlink ---
-  // create incident + assign mission as commander
+  // create incident + assign mission as commander. Title carries the pid so
+  // re-runs against a persistent database never resolve to a stale incident.
+  const incTitle = `GW test incident ${process.pid}`;
   await commander.reducers.createIncident({
-    title: 'GW test incident', description: 'gateway e2e', severity: 'medium',
+    title: incTitle, description: 'gateway e2e', severity: 'medium',
     confidence: 'suspected', traceId: 'gw-inc',
   });
   await sleep(600);
   const incs = [...(await commander.db.incidentFeed.iter())];
-  const inc = incs.find((i: any) => i.title === 'GW test incident') as any;
+  const inc = incs.find((i: any) => i.title === incTitle) as any;
   check('incident created', !!inc);
   const incId = inc.id as string;
 

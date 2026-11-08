@@ -2,11 +2,17 @@ import { DbConnection } from '../bindings/index';
 import { tables, reducers } from '../bindings/index';
 import type { Identity } from 'spacetimedb';
 
-const URI = 'ws://127.0.0.1:3000';
-const DB = 'sentinel-hive';
+// SPACETIMEDB_URI / SPACETIMEDB_DATABASE override the target so the smoke
+// suite can run against a scratch database (e.g. `sentinel-hive-smoke`)
+// while the seeded `sentinel-hive` lab keeps running. The suite bootstraps
+// its own genesis, so it requires a FRESH/EMPTY database.
+const URI = process.env.SPACETIMEDB_URI ?? 'ws://127.0.0.1:3000';
+const DB = process.env.SPACETIMEDB_DATABASE ?? 'sentinel-hive';
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-const TOKENS_FILE = '.smoke-identity-tokens.json';
+// Token cache is per-database: identity tokens are not portable across
+// module instances, and each smoke run needs its own genesis anyway.
+const TOKENS_FILE = `.smoke-identity-tokens-${DB}.json`;
 const savedTokens: Record<string, string> = existsSync(TOKENS_FILE)
   ? JSON.parse(readFileSync(TOKENS_FILE, 'utf8'))
   : {};

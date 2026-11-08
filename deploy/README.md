@@ -34,22 +34,40 @@ subscribe to the role-scoped views — the same path the smoke tests prove.
 
 | Component | Version | Where pinned |
 |-----------|---------|--------------|
-| SpacetimeDB CLI/module SDK | 2.14.x (`spacetimedb@2.14.*`) | `spacetimedb/package.json` |
+| SpacetimeDB CLI | **2.14.x — must match the server image** | install below |
+| SpacetimeDB module SDK | 2.14.x (`spacetimedb@2.14.*`) | `spacetimedb/package.json` |
 | SpacetimeDB server image | `clockworklabs/spacetime:v2.14.1` | `docker-compose.yml` |
 | Mosquitto image | `eclipse-mosquitto:2.0.20` | `docker-compose.yml` |
 | Node | >=22.6 (`.tool-versions`: 22.11.0) | `.tool-versions` |
 | Gateway deps | `services/gateway/package-lock.json` | committed lockfile |
 
+The CLI version matters: `install.spacetimedb.com` tracks **latest**, which
+can drift ahead of the pinned server/SDK. Install the matching release
+directly instead (assets: `spacetime-<arch>-<os>.tar.gz`):
+
+```sh
+# macOS arm64 example — use spacetime-x86_64-apple-darwin.tar.gz on Intel,
+# spacetime-aarch64-unknown-linux-gnu.tar.gz on Linux arm64, etc.
+curl -fsSL -o /tmp/spacetime.tgz \
+  https://github.com/clockworklabs/SpacetimeDB/releases/download/v2.14.1/spacetime-aarch64-apple-darwin.tar.gz
+tar xzf /tmp/spacetime.tgz -C ~/.local/bin
+ln -sf ~/.local/bin/spacetimedb-cli ~/.local/bin/spacetime
+spacetime --version   # expect 2.14.1
+```
+
 ## Fresh-engineer bootstrap
 
 ```sh
 git clone <repo> && cd hackutd26
-# prereqs: docker, node>=22.6, spacetime CLI 2.14.x (install.spacetimedb.com)
+# prereqs: docker, node>=22.6, spacetime CLI 2.14.x (see above)
 deploy/scripts/bootstrap.sh
 ```
 
 `bootstrap.sh` is idempotent and performs:
 
+0. Secrets — copies `env/mqtt.env.example` → `env/mqtt.env` if missing and
+   fills any empty `*_PASSWORD` with random dev passwords; regenerates
+   `mosquitto/passwordfile` (gitignored bcrypt hashes).
 1. `docker compose up -d` — mosquitto, spacetimedb, lab-executor (with
    healthchecks; `docker inspect -f '{{.State.Health.Status}}' sh-<svc>`).
 2. `spacetime publish sentinel-hive --delete-data=always` — fresh module.
@@ -57,19 +75,28 @@ deploy/scripts/bootstrap.sh
    (admin, commander, responder, observer, agent, gateway, executor, plus
    one identity per lab device), registers zones/devices/assets, enrolls
    device principals, and writes `deploy/secrets/identities.json`.
-4. `services/gateway` `npm install` + binding generation.
-5. Prints health status + next steps.
+4. `services/gateway` `npm install` + binding generation, then auto-fills
+   the still-empty `SPACETIMEDB_TOKEN`, `EXECUTOR_SPACETIMEDB_TOKEN` and
+   `MQTT_PASSWORD` in `env/gateway.env` from those secrets (values already
+   set are never overwritten).
+5. Prints container health + next steps.
 
-Then finish secret injection (all local, gitignored):
+Then start the gateway (host process — see Topology):
 
 ```sh
-cp deploy/env/mqtt.env.example deploy/env/mqtt.env      # fill passwords
-cp deploy/env/gateway.env.example deploy/env/gateway.env # fill tokens
-./deploy/scripts/make-mosquitto-passwords.sh             # -> passwordfile
-docker compose -f deploy/docker-compose.yml restart mosquitto
-cd services/gateway && set -a && . ../../deploy/env/gateway.env && set +a && npm start
+cd services/gateway
+set -a; . ../../deploy/env/gateway.env; set +a
+npm start
 curl localhost:8081/healthz
 ```
+
+> **macOS note:** Docker Desktop needs Files-and-Folders access to the
+> repo path. `~/Documents`, `~/Desktop` and `~/Downloads` are
+> TCC-protected — if `docker compose up` fails with
+> `operation not permitted` on a bind-mount source, grant Docker access in
+> System Settings → Privacy & Security, or run the deploy from an
+> unprotected path (e.g. `cp -R deploy ~/sh-deploy` and compose from
+> there; the `spacetime-data` named volume is shared either way).
 
 ## Secret injection
 
@@ -88,7 +115,8 @@ curl localhost:8081/healthz
 
 ## Health checks
 
-- `sh-mosquitto`: publishes a QoS1 probe to `sentinel/v1/healthcheck`.
+- `sh-mosquitto`: TCP connect check on `:1883` (auth/ACL correctness is
+  exercised by the gateway integration test).
 - `sh-spacetimedb`: `GET /v1/ping`.
 - `sh-lab-executor`: `GET /healthz`.
 - gateway (host process): `GET :8081/healthz` reports
@@ -154,12 +182,53 @@ stub remains the zero-dependency compose default.
 
 ## Tests / evidence
 
-- `spacetimedb`: `cd spacetimedb && npm run test:smoke` — 33-check live
+- `spacetimedb`: `cd spacetimedb && npm run test:smoke` — 44-check live
   contract test (authz, scoped views, correlation, action pipeline).
-- `services/gateway`: `GATEWAY_TEST_TOKENS=... npx tsx test/gateway.test.ts`
-  — 15-check MQTT ingest/mission/outbox integration test (aedes broker).
+  **Requires a FRESH/EMPTY database** — the suite bootstraps its own
+  genesis (`bootstrapAdmin` fails on an initialized directory). Run it
+  before `deploy/seeds`, or against a scratch database that can coexist
+  with the seeded lab:
+
+  ```sh
+  spacetime publish sentinel-hive-smoke --server http://127.0.0.1:3000 \
+    --module-path spacetimedb --delete-data=always --yes
+  cd spacetimedb && SPACETIMEDB_DATABASE=sentinel-hive-smoke npm run test:smoke
+  ```
+
+  (`SPACETIMEDB_URI`/`SPACETIMEDB_DATABASE` env overrides; identity-token
+  cache is per-database.)
+
+- `services/gateway`: `npx tsx test/gateway.test.ts` — 17-check MQTT
+  ingest/mission/outbox integration test (in-process aedes broker +
+  spawned gateway). Needs the stack up, module published, lab seeded, and
+  `GATEWAY_TEST_TOKENS` — a JSON map of the `gateway`, `executor`,
+  `commander`, `responder` tokens from `deploy/secrets/identities.json`:
+
+  ```sh
+  cd services/gateway
+  GATEWAY_TEST_TOKENS="$(node -e 'const t=require("../deploy/secrets/identities.json")["ws://127.0.0.1:3000"];console.log(JSON.stringify({gateway:t.gateway,executor:t.executor,commander:t.commander,responder:t.responder}))')" \
+    npx tsx test/gateway.test.ts
+  ```
+
+  Covers signed-envelope ingest (HMAC), duplicate/forged/stale rejection,
+  mission downlink over MQTT, and the outbox worker. Re-runnable against a
+  persistent database (seq base + incident titles are made unique per run).
+
 - This deploy: `docker compose -f deploy/docker-compose.yml ps` shows all
   services healthy; `curl localhost:8081/healthz` after gateway start.
+
+## Restart durability
+
+- SpacetimeDB data lives in the named volume `spacetime-data` —
+  `docker compose restart spacetimedb` (or `down`/`up`) preserves
+  observations, devices, incidents, actions and views state. Verified:
+  observations + `devices.lastSeq` survive a container restart.
+- The ONLY wipe is `spacetime publish --delete-data=always` (bootstrap
+  step 2) or `docker compose down -v`.
+- Gateway restart reconciliation lives in `GATEWAY_STATE_FILE`
+  (`services/gateway/gateway-state.json`, gitignored): dispatched-mission
+  markers, completed outbox ids, and per-device seq counters for
+  gateway-normalized telemetry survive gateway restarts.
 
 ## What is NOT here (by design)
 
