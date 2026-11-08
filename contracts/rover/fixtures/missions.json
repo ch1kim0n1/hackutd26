@@ -1,0 +1,501 @@
+[
+  {
+    "name": "inspect-zone",
+    "now": 1767225600.0,
+    "waypoint_table": {
+      "wp-rack-a": {
+        "name": "Rack-A",
+        "xy": [
+          2.5,
+          0.8
+        ]
+      }
+    },
+    "shim": {
+      "camera_id": "cam-mast",
+      "routes": {
+        "wp-rack-a": "patrol-rack",
+        "*": "patrol-main"
+      }
+    },
+    "common": {
+      "contract": "sentinel.rover.mission",
+      "schema_version": 1,
+      "mission_id": "mis-insp-1",
+      "command_id": "mis-insp-1",
+      "device_id": "rover-01",
+      "type": "inspect_zone",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2,
+      "issued_at": "2026-11-08T00:00:00Z"
+    },
+    "module_command": {
+      "schema_version": 1,
+      "command_id": "mis-insp-1",
+      "mission_id": "mis-insp-1",
+      "device_id": "rover-01",
+      "type": "inspect_zone",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2
+    },
+    "rover_mission": {
+      "schema_version": 1,
+      "command_id": "mis-insp-1",
+      "mission_id": "mis-insp-1",
+      "device_id": "rover-01",
+      "type": "inspect_zone",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2
+    },
+    "autonomy_directive": {
+      "contract": "sentinel.rover.autonomy_directive",
+      "schema_version": 1,
+      "mission_id": "mis-insp-1",
+      "command_id": "mis-insp-1",
+      "device_id": "rover-01",
+      "behavior": "PATROL",
+      "mission_type": "inspect_zone",
+      "timeout_s": 31536000.0,
+      "issued_at": "2026-11-08T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "max_speed_mps": 0.2,
+      "checkpoint": true,
+      "waypoints": [
+        {
+          "ref": "wp-rack-a",
+          "name": "Rack-A",
+          "xy": [
+            2.5,
+            0.8
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "patrol-waypoint-selector",
+    "now": 1767225600.0,
+    "waypoint_table": {
+      "wp-rack-a": {
+        "name": "Rack-A",
+        "xy": [
+          2.5,
+          0.8
+        ]
+      }
+    },
+    "shim": {
+      "camera_id": "cam-mast",
+      "routes": {
+        "wp-rack-a": "patrol-rack",
+        "*": "patrol-main"
+      }
+    },
+    "common": {
+      "contract": "sentinel.rover.mission",
+      "schema_version": 1,
+      "mission_id": "mis-patrol-1",
+      "command_id": "mis-patrol-1",
+      "device_id": "rover-01",
+      "type": "patrol",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.25,
+      "issued_at": "2026-11-08T00:00:00Z"
+    },
+    "module_command": {
+      "schema_version": 1,
+      "command_id": "mis-patrol-1",
+      "mission_id": "mis-patrol-1",
+      "device_id": "rover-01",
+      "type": "patrol",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.25
+    },
+    "rover_mission": {
+      "schema_version": 1,
+      "command_id": "mis-patrol-1",
+      "mission_id": "mis-patrol-1",
+      "device_id": "rover-01",
+      "type": "patrol_route",
+      "route_id": "patrol-rack",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.25
+    },
+    "autonomy_directive": {
+      "contract": "sentinel.rover.autonomy_directive",
+      "schema_version": 1,
+      "mission_id": "mis-patrol-1",
+      "command_id": "mis-patrol-1",
+      "device_id": "rover-01",
+      "behavior": "PATROL",
+      "mission_type": "patrol",
+      "timeout_s": 31536000.0,
+      "issued_at": "2026-11-08T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "max_speed_mps": 0.25,
+      "waypoints": [
+        {
+          "ref": "wp-rack-a",
+          "name": "Rack-A",
+          "xy": [
+            2.5,
+            0.8
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "patrol-route-direct",
+    "now": 1767225600.0,
+    "waypoint_table": {},
+    "shim": {
+      "camera_id": "cam-mast",
+      "routes": {
+        "*": "patrol-main"
+      }
+    },
+    "common": {
+      "contract": "sentinel.rover.mission",
+      "schema_version": 1,
+      "mission_id": "mis-patrol-2",
+      "command_id": "mis-patrol-2",
+      "device_id": "rover-01",
+      "type": "patrol",
+      "route_id": "patrol-main",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.3
+    },
+    "module_command": null,
+    "rover_mission": {
+      "schema_version": 1,
+      "command_id": "mis-patrol-2",
+      "mission_id": "mis-patrol-2",
+      "device_id": "rover-01",
+      "type": "patrol_route",
+      "route_id": "patrol-main",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.3
+    },
+    "autonomy_directive": {
+      "contract": "sentinel.rover.autonomy_directive",
+      "schema_version": 1,
+      "mission_id": "mis-patrol-2",
+      "command_id": "mis-patrol-2",
+      "device_id": "rover-01",
+      "behavior": "PATROL",
+      "mission_type": "patrol",
+      "timeout_s": 31536000.0,
+      "expires_at": "2027-01-01T00:00:00Z",
+      "route_id": "patrol-main",
+      "max_speed_mps": 0.3,
+      "route_ref": "patrol-main"
+    }
+  },
+  {
+    "name": "capture-photo",
+    "now": 1767225600.0,
+    "waypoint_table": {
+      "wp-cabinet": {
+        "name": "Cabinet",
+        "xy": [
+          5.2,
+          3.0
+        ]
+      }
+    },
+    "shim": {
+      "camera_id": "cam-mast",
+      "routes": {
+        "*": "patrol-main"
+      }
+    },
+    "common": {
+      "contract": "sentinel.rover.mission",
+      "schema_version": 1,
+      "mission_id": "mis-photo-1",
+      "command_id": "mis-photo-1",
+      "device_id": "rover-01",
+      "type": "capture_photo",
+      "zone_id": "cabinet-01",
+      "waypoint_id": "wp-cabinet",
+      "camera_id": "cam-mast",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.15,
+      "issued_at": "2026-11-08T00:00:00Z"
+    },
+    "module_command": {
+      "schema_version": 1,
+      "command_id": "mis-photo-1",
+      "mission_id": "mis-photo-1",
+      "device_id": "rover-01",
+      "type": "capture_photo",
+      "zone_id": "cabinet-01",
+      "waypoint_id": "wp-cabinet",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.15
+    },
+    "rover_mission": {
+      "schema_version": 1,
+      "command_id": "mis-photo-1",
+      "mission_id": "mis-photo-1",
+      "device_id": "rover-01",
+      "type": "capture_photo",
+      "camera_id": "cam-mast",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.15
+    },
+    "autonomy_directive": {
+      "contract": "sentinel.rover.autonomy_directive",
+      "schema_version": 1,
+      "mission_id": "mis-photo-1",
+      "command_id": "mis-photo-1",
+      "device_id": "rover-01",
+      "behavior": "CHECKPOINT",
+      "mission_type": "capture_photo",
+      "timeout_s": 31536000.0,
+      "issued_at": "2026-11-08T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "zone_id": "cabinet-01",
+      "waypoint_id": "wp-cabinet",
+      "max_speed_mps": 0.15,
+      "capture": true,
+      "waypoints": [
+        {
+          "ref": "wp-cabinet",
+          "name": "Cabinet",
+          "xy": [
+            5.2,
+            3.0
+          ]
+        }
+      ]
+    },
+    "rover_form_lossy": true,
+    "note": "Rover form drops zone_id/waypoint_id for this type, so rover->common loses module-required fields; common->rover then correctly refuses (not module-dispatchable). Fixed-point holds only for inspect_zone, patrol, wireless_rescan \u2014 docs/14 \u00a73."
+  },
+  {
+    "name": "return-home",
+    "now": 1767225600.0,
+    "waypoint_table": {
+      "wp-home": {
+        "name": "Home",
+        "xy": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    "shim": {
+      "camera_id": "cam-mast",
+      "routes": {
+        "*": "patrol-main"
+      }
+    },
+    "common": {
+      "contract": "sentinel.rover.mission",
+      "schema_version": 1,
+      "mission_id": "mis-home-1",
+      "command_id": "mis-home-1",
+      "device_id": "rover-01",
+      "type": "return_home",
+      "zone_id": "lobby",
+      "waypoint_id": "wp-home",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2,
+      "issued_at": "2026-11-08T00:00:00Z"
+    },
+    "module_command": {
+      "schema_version": 1,
+      "command_id": "mis-home-1",
+      "mission_id": "mis-home-1",
+      "device_id": "rover-01",
+      "type": "return_home",
+      "zone_id": "lobby",
+      "waypoint_id": "wp-home",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2
+    },
+    "rover_mission": {
+      "schema_version": 1,
+      "command_id": "mis-home-1",
+      "mission_id": "mis-home-1",
+      "device_id": "rover-01",
+      "type": "return_home",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2
+    },
+    "autonomy_directive": {
+      "contract": "sentinel.rover.autonomy_directive",
+      "schema_version": 1,
+      "mission_id": "mis-home-1",
+      "command_id": "mis-home-1",
+      "device_id": "rover-01",
+      "behavior": "RETURN_HOME",
+      "mission_type": "return_home",
+      "timeout_s": 31536000.0,
+      "issued_at": "2026-11-08T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "zone_id": "lobby",
+      "waypoint_id": "wp-home",
+      "max_speed_mps": 0.2,
+      "waypoints": [
+        {
+          "ref": "wp-home",
+          "name": "Home",
+          "xy": [
+            0.5,
+            0.5
+          ]
+        }
+      ]
+    },
+    "rover_form_lossy": true,
+    "note": "Rover form drops zone_id/waypoint_id for this type, so rover->common loses module-required fields; common->rover then correctly refuses (not module-dispatchable). Fixed-point holds only for inspect_zone, patrol, wireless_rescan \u2014 docs/14 \u00a73."
+  },
+  {
+    "name": "hold",
+    "now": 1767225600.0,
+    "waypoint_table": {},
+    "shim": {
+      "camera_id": "cam-mast",
+      "routes": {
+        "*": "patrol-main"
+      }
+    },
+    "common": {
+      "contract": "sentinel.rover.mission",
+      "schema_version": 1,
+      "mission_id": "mis-hold-1",
+      "command_id": "mis-hold-1",
+      "device_id": "rover-01",
+      "type": "hold",
+      "zone_id": "lobby",
+      "waypoint_id": "wp-home",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2,
+      "issued_at": "2026-11-08T00:00:00Z"
+    },
+    "module_command": {
+      "schema_version": 1,
+      "command_id": "mis-hold-1",
+      "mission_id": "mis-hold-1",
+      "device_id": "rover-01",
+      "type": "hold",
+      "zone_id": "lobby",
+      "waypoint_id": "wp-home",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2
+    },
+    "rover_mission": {
+      "schema_version": 1,
+      "command_id": "mis-hold-1",
+      "mission_id": "mis-hold-1",
+      "device_id": "rover-01",
+      "type": "stop",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2
+    },
+    "autonomy_directive": {
+      "contract": "sentinel.rover.autonomy_directive",
+      "schema_version": 1,
+      "mission_id": "mis-hold-1",
+      "command_id": "mis-hold-1",
+      "device_id": "rover-01",
+      "behavior": "STOP",
+      "mission_type": "hold",
+      "timeout_s": 31536000.0,
+      "issued_at": "2026-11-08T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "zone_id": "lobby",
+      "waypoint_id": "wp-home",
+      "max_speed_mps": 0.2
+    },
+    "rover_form_lossy": true,
+    "note": "Rover form drops zone_id/waypoint_id for this type, so rover->common loses module-required fields; common->rover then correctly refuses (not module-dispatchable). Fixed-point holds only for inspect_zone, patrol, wireless_rescan \u2014 docs/14 \u00a73."
+  },
+  {
+    "name": "wireless-rescan",
+    "now": 1767225600.0,
+    "waypoint_table": {
+      "wp-rack-a": {
+        "name": "Rack-A",
+        "xy": [
+          2.5,
+          0.8
+        ]
+      }
+    },
+    "shim": {
+      "camera_id": "cam-mast",
+      "routes": {
+        "*": "patrol-main"
+      }
+    },
+    "common": {
+      "contract": "sentinel.rover.mission",
+      "schema_version": 1,
+      "mission_id": "mis-rescan-1",
+      "command_id": "mis-rescan-1",
+      "device_id": "rover-01",
+      "type": "wireless_rescan",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2,
+      "issued_at": "2026-11-08T00:00:00Z"
+    },
+    "module_command": null,
+    "rover_mission": {
+      "schema_version": 1,
+      "command_id": "mis-rescan-1",
+      "mission_id": "mis-rescan-1",
+      "device_id": "rover-01",
+      "type": "wireless_rescan",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "max_speed_mps": 0.2
+    },
+    "autonomy_directive": {
+      "contract": "sentinel.rover.autonomy_directive",
+      "schema_version": 1,
+      "mission_id": "mis-rescan-1",
+      "command_id": "mis-rescan-1",
+      "device_id": "rover-01",
+      "behavior": "CHECKPOINT",
+      "mission_type": "wireless_rescan",
+      "timeout_s": 31536000.0,
+      "issued_at": "2026-11-08T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "max_speed_mps": 0.2,
+      "rescan": true,
+      "waypoints": [
+        {
+          "ref": "wp-rack-a",
+          "name": "Rack-A",
+          "xy": [
+            2.5,
+            0.8
+          ]
+        }
+      ]
+    }
+  }
+]
