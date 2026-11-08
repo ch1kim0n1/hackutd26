@@ -1,6 +1,5 @@
 import type { ApiSnapshot, LiveRows, LiveSnapshot } from './types'
 import { emptyRows } from './types'
-import { mapSnapshot } from './map'
 
 export type LivePhase = 'off' | 'connecting' | 'online' | 'degraded' | 'error'
 

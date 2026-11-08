@@ -1,4 +1,4 @@
-import { emptyRows, type ApiSnapshot, type LiveRows, type LiveSnapshot } from './types'
+import { type ApiSnapshot, type LiveRows, type LiveSnapshot } from './types'
 import { toMicros } from './time'
 
 /** Deterministic replay fixture: recorded backend-shaped rows emitted on

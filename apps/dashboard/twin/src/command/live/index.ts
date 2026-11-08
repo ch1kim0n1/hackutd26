@@ -1,7 +1,7 @@
 import { readLiveConfig, liveConfigProblems, type LiveConfig } from './config'
 import { ApiClient } from './api'
 import { SpaceTimeTransport } from './spacetime'
-import { LiveSync, type LiveSyncDeps } from './sync'
+import { type LiveSyncDeps } from './sync'
 
 export { LiveSync } from './sync'
 export type { LivePhase } from './sync'
