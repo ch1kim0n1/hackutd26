@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react'
+import { motion, useMotionValue, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 /** Wraps a block so it scales/fades in as it enters the viewport and settles back as it leaves. */
@@ -10,18 +10,6 @@ export function Scene({ children, className }: { children: ReactNode; className?
   const opacity = useTransform(scrollYProgress, [0, .22, .85, 1], [0, 1, 1, .35])
   const y = useTransform(scrollYProgress, [0, .3], [90, 0])
   return <motion.div ref={ref} className={className} style={reduced ? undefined : { scale, opacity, y }}>{children}</motion.div>
-}
-
-/** Two rows of huge outlined words sliding in opposite directions as the page scrolls. */
-export function MarqueeBand({ words }: { words: string[] }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
-  const left = useTransform(scrollYProgress, [0, 1], ['0%', '-30%'])
-  const right = useTransform(scrollYProgress, [0, 1], ['-30%', '0%'])
-  const row = (x: MotionValue<string>, accent: number) => <motion.div className="lp-band-row" style={{ x }}>
-    {[...words, ...words, ...words].map((w, i) => <span key={i} className={i % words.length === accent ? 'is-fill' : ''}>{w}<i>◆</i></span>)}
-  </motion.div>
-  return <div ref={ref} className="lp-band" aria-hidden="true">{row(left, 2)}{row(right, 4)}</div>
 }
 
 export function ScrollCue() {
