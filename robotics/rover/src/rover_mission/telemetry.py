@@ -93,10 +93,11 @@ def publisher_from_env(default_url: Optional[str] = None) -> Publisher:
     if url:
         return HttpPublisher(url, os.environ.get("ROVER_TELEMETRY_TOKEN", ""))
     if os.environ.get("MQTT_HOST"):
+        client_id = os.environ.get("MQTT_CLIENT_ID", "rover-01")
         return MqttPublisher(
             os.environ["MQTT_HOST"],
             int(os.environ.get("MQTT_PORT", "1883")),
-            os.environ.get("MQTT_TOPIC", "sentinel/rover/telemetry"),
-            os.environ.get("MQTT_CLIENT_ID", "rover-01"),
+            os.environ.get("MQTT_TOPIC", f"sentinel/v1/{client_id}/telemetry"),
+            client_id,
         )
     return ConsolePublisher()

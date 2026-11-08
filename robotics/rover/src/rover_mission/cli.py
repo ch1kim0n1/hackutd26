@@ -227,6 +227,37 @@ def cmd_validate(args) -> int:
     return 0 if res.ok else 3
 
 
+def cmd_intercept(args) -> int:
+    """Run the monitor-mode interceptor (+ optional honeypot classifier)."""
+    import os
+    from .honeypot import Honeypot
+    from .interceptor import Interceptor
+    from .telemetry import publisher_from_env
+
+    publisher = publisher_from_env()
+    secret = os.environ.get("ROVER_MISSION_SECRET", "").encode()
+    honeypot = None
+    if args.honeypot:
+        decoys = ([{"ssid": s, "bssid": f"02:11:22:33:44:{55 + i:02x}"}
+                   for i, s in enumerate(args.decoy_ssid)]
+                  if args.decoy_ssid else None)
+        def _rogue(hit):
+            print(f"[honeypot] ROGUE {hit.mac} -> {hit.ssid} "
+                  f"({hit.frame_count} frames, rssi {hit.last_rssi})",
+                  file=sys.stderr)
+        honeypot = Honeypot(decoys=decoys, on_rogue=_rogue)
+    interceptor = Interceptor(
+        device_id=args.device, zone_id=args.zone, publisher=publisher,
+        iface=args.iface, channel=args.channel, secret=secret,
+        on_frame=(honeypot.feed_observation if honeypot else None),
+    )
+    print(f"intercepting on {args.iface} ch{args.channel} "
+          f"as {args.device} (honeypot={'on' if honeypot else 'off'})",
+          file=sys.stderr)
+    interceptor.run_forever()
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="rover-mission")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -265,6 +296,19 @@ def main(argv=None) -> int:
     vp = sub.add_parser("validate", help="validate a mission file")
     vp.add_argument("file")
     vp.set_defaults(fn=cmd_validate)
+
+    ip = sub.add_parser("intercept",
+                        help="monitor-mode Wi-Fi sniffer -> canonical observations")
+    ip.add_argument("--iface", default="wlan1")
+    ip.add_argument("--channel", type=int, default=6)
+    ip.add_argument("--device", default="rover-01",
+                    help="device_id in emitted envelopes")
+    ip.add_argument("--zone", default="lobby")
+    ip.add_argument("--honeypot", action="store_true",
+                    help="flag stations probing/associating with decoy SSIDs")
+    ip.add_argument("--decoy-ssid", action="append", default=[],
+                    help="decoy SSID (repeatable); default pair used if none")
+    ip.set_defaults(fn=cmd_intercept)
 
     args = p.parse_args(argv)
     return args.fn(args)
