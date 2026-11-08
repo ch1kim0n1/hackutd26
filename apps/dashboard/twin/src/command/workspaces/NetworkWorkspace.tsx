@@ -44,7 +44,7 @@ export default function NetworkWorkspace() {
   ], [state.zones, mode])
   useEffect(() => { grid.current?.api?.redrawRows() }, [selectedId])
   const topology = useMemo(() => {
-    const nodes: Node[] = [{ id: 'network-core', position: { x: 490, y: 0 }, data: { label: <span className="sec-topology-core"><Network size={14} />PHANTOM CORE</span> }, style: { background: '#292725', borderColor: '#eab308', color: palette.text, width: 160, fontSize: 10 }, selectable: false }]
+    const nodes: Node[] = [{ id: 'network-core', position: { x: 490, y: 0 }, data: { label: <span className="sec-topology-core"><Network size={14} />PHANTOM CORE</span> }, style: { background: '#292725', borderColor: '#22c55e', color: palette.text, width: 160, fontSize: 10 }, selectable: false }]
     const edges: Edge[] = []
     state.zones.forEach((zone, zoneIndex) => {
       const zoneDevices = state.devices.filter(device => device.zoneId === zone.id)

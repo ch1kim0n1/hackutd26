@@ -12,7 +12,7 @@ npm ci
 npm run dev
 ```
 
-Open the URL Vite prints, normally `http://127.0.0.1:5173/`. Supported Node versions: 22.13+, 24 LTS, or 26+; npm 10+. The verified environment is Node 26.12.1 / npm 11.20.0 on macOS arm64.
+Open the URL Vite prints, normally `http://127.0.0.1:5173/`. `/` is the project landing page; the console itself opens at `/#overview` (any workspace hash or `?live=` query goes straight to it). Supported Node versions: 22.13+, 24 LTS, or 26+; npm 10+. The verified environment is Node 26.12.1 / npm 11.20.0 on macOS arm64.
 
 ## Demo walkthrough
 

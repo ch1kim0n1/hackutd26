@@ -11,7 +11,7 @@ import { createFacilityGrid, mergeCollinearWalls, occupancyToWalls } from './occ
 import { OccupancyInstanceSet, planTwinInstances, type TwinInstance } from './occupancyMesh'
 import './twin.css'
 
-const colors = { cyan: '#eab308', purple: '#a8a29e', green: '#bfb6ab', red: '#ef4444', amber: '#fb923c', muted: '#a8a29e' }
+const colors = { cyan: '#22c55e', purple: '#a8a29e', green: '#bfb6ab', red: '#ef4444', amber: '#fb923c', muted: '#a8a29e' }
 const mapWalls = mergeCollinearWalls(occupancyToWalls(createFacilityGrid()))
 const home: Point = { x: 18, y: 3 }
 const patrol: Point[] = [{ x: 18, y: 3 }, { x: 18, y: 4.5 }, { x: 14, y: 4.5 }, { x: 13, y: 4.5 }, { x: 13, y: 13.5 }, { x: 14, y: 13.5 }, { x: 18, y: 13.5 }, { x: 18, y: 9 }, { x: 18, y: 3 }]
