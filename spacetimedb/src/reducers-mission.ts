@@ -43,9 +43,13 @@ function missionCommandJson(
   zoneId: string,
   waypoint: string,
   expiresAtMicros: bigint,
-  maxSpeedMps: number
+  maxSpeedMps: number,
+  incidentId: string
 ): string {
   // Rover mission contract — docs/04. Strict fields, no arbitrary PWM.
+  // incident_id is optional passthrough: the mission-shim forwards it into
+  // the signed rover mission so inspection evidence/report artifacts carry
+  // the originating incident linkage end to end.
   return canonicalJson({
     schema_version: 1,
     command_id: missionId,
@@ -56,6 +60,7 @@ function missionCommandJson(
     waypoint_id: waypoint,
     expires_at: new Date(Number(expiresAtMicros / 1000n)).toISOString(),
     max_speed_mps: maxSpeedMps,
+    incident_id: incidentId,
   });
 }
 
@@ -124,7 +129,8 @@ export const assignMission = spacetimedb.reducer(
       zoneId,
       waypoint,
       args.expiresAtMicros,
-      args.maxSpeedMps
+      args.maxSpeedMps,
+      incidentId
     );
     if (commandJson.length > MAX_PAYLOAD_JSON_BYTES) {
       throw new SenderError('command payload too large');
@@ -194,7 +200,8 @@ export const proposeMission = spacetimedb.reducer(
     const id = newId('mis', ctx);
     // Draft command payload stored but unsigned/undispatchable until approval.
     const commandJson = missionCommandJson(
-      id, deviceId, type, zoneId, waypoint, args.expiresAtMicros, args.maxSpeedMps
+      id, deviceId, type, zoneId, waypoint, args.expiresAtMicros, args.maxSpeedMps,
+      incidentId
     );
     if (commandJson.length > MAX_PAYLOAD_JSON_BYTES) {
       throw new SenderError('command payload too large');

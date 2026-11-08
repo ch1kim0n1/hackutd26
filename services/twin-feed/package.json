@@ -1,0 +1,14 @@
+{
+  "name": "sentinel-twin-feed",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP twin spatial feed: real rover poses from SpacetimeDB mission_status observations + surveyed-floorplan occupancy grid for the 3D dashboard.",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "~5.6.2"
+  }
+}

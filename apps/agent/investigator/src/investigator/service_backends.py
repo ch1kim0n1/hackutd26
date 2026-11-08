@@ -28,8 +28,10 @@ Expected store attributes:
 """
 from __future__ import annotations
 
+import json
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 
@@ -41,6 +43,29 @@ def _obs_dict(o: Any) -> dict:
         "event_id", "kind", "device_id", "zone_id", "incident_id",
         "summary", "data", "observed_at", "provenance")
             if hasattr(o, k)}
+
+
+_MAX_DATA_CHARS = 1500
+
+
+def _bounded_data(data: Any) -> Any:
+    """Structured observation payload, size-bounded for the model
+    context. Dicts/lists pass through (truncated on serialize); scalars
+    and oversized payloads degrade to a bounded repr — Nemotron sees the
+    real telemetry fields, never an opaque summary-only string."""
+    if data is None:
+        return None
+    if isinstance(data, (dict, list)):
+        try:
+            s = json.dumps(data, separators=(",", ":"), default=str)
+        except (TypeError, ValueError):
+            return {"_unserializable": True}
+        if len(s) <= _MAX_DATA_CHARS:
+            return data
+        return {"_truncated": True, "bytes": len(s),
+                "preview": s[:_MAX_DATA_CHARS]}
+    s = str(data)
+    return s[:_MAX_DATA_CHARS]
 
 
 class ServiceBackends:
@@ -81,6 +106,7 @@ class ServiceBackends:
                 "zone_id": o.get("zone_id"),
                 "device_id": o.get("device_id"),
                 "summary": o.get("summary"),
+                "data": _bounded_data(o.get("data")),
                 "provenance": o.get("provenance"),
                 "observed_at": o.get("observed_at"),
             })
@@ -150,10 +176,12 @@ class ServiceBackends:
     def request_rover_inspection(self, a: dict[str, Any]):
         """Queue an inspection request record. The mission shim/policy
         path owns actual dispatch — this only registers intent."""
+        rover = getattr(self.stores, "rover_device_id", "") or "rover-01"
         req = {
             "request_id": f"req-{uuid.uuid4().hex[:10]}",
             "type": "inspect_zone",
             "incident_id": a.get("incident_id") or self.incident_id,
+            "device_id": rover,
             "zone_id": a.get("zone_id", ""),
             "waypoint_id": a.get("waypoint_id", ""),
             "state": "queued",
@@ -198,7 +226,76 @@ class ServiceBackends:
                 return {"evidence_id": eid,
                         "kind": getattr(ref, "kind", "artifact"),
                         "note": getattr(ref, "note", "")}
+        artifact = self._inspection_artifact(eid)
+        if artifact is not None:
+            return artifact
         return {"error": "not_found", "evidence_id": eid}
+
+    def _inspection_artifact(self, evidence_id: str):
+        """Resolve a rover inspection artifact_id to its stored report.
+
+        The rover writes ``<evidence_dir>/<zone>/<artifact>.json`` +
+        ``.meta.json`` sidecars (sha256/bytes/storage_ref). We verify the
+        digest before serving content — evidence integrity is part of
+        the contract (ADR-008). Returns a bounded summary + the check
+        results Nemotron needs for reassessment; the full report stays
+        on disk, referenced by storage_ref."""
+        root = getattr(self.stores, "rover_evidence_dir", "") or ""
+        if not root or not evidence_id:
+            return None
+        base = Path(root)
+        if not base.is_dir():
+            return None
+        safe = "".join(c if c.isalnum() or c in "-_." else "_"
+                       for c in evidence_id)[:96]
+        hits = list(base.glob(f"*/{safe}.json")) + \
+            list(base.glob(f"{safe}.json"))
+        if not hits:
+            return None
+        report_path = hits[0]
+        try:
+            body = report_path.read_bytes()
+            import hashlib
+            digest = hashlib.sha256(body).hexdigest()
+            meta = {}
+            meta_path = report_path.with_name(
+                report_path.name[:-5] + ".meta.json")
+            if meta_path.exists():
+                meta = json.loads(meta_path.read_text())
+            expected = meta.get("sha256")
+            if expected and expected != digest:
+                return {"evidence_id": evidence_id,
+                        "kind": "inspection_report",
+                        "error": "sha256_mismatch"}
+            report = json.loads(body)
+        except (OSError, ValueError):
+            return None
+        checks = report.get("checks") or []
+        return {
+            "evidence_id": evidence_id,
+            "kind": "inspection_report",
+            "report_id": report.get("report_id"),
+            "mission_id": report.get("mission_id"),
+            "incident_id": report.get("incident_id"),
+            "device_id": report.get("device_id"),
+            "target_device_id": report.get("target_device_id"),
+            "zone_id": report.get("zone_id"),
+            "waypoint_id": report.get("waypoint_id"),
+            "status": report.get("status"),
+            "status_detail": report.get("status_detail"),
+            "adapter": report.get("adapter"),
+            "provenance": report.get("provenance"),
+            "synthetic": report.get("synthetic"),
+            "started_at": report.get("started_at"),
+            "completed_at": report.get("completed_at"),
+            "checks": [{"name": c.get("name") or c.get("type"),
+                        "ok": c.get("ok"),
+                        "detail": str(c.get("detail") or "")[:200]}
+                       for c in checks[:16]],
+            "observations": (report.get("observations") or [])[:16],
+            "storage_ref": str(report_path),
+            "sha256": digest,
+        }
 
     def append_agent_assessment(self, a: dict[str, Any]):
         rec = {

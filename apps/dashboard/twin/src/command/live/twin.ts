@@ -55,6 +55,14 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 const MAP_KEYS = new Set(['occupancy_grid', 'occupancyGrid', 'grid', 'map'])
 const POSE_KEYS = new Set(['pose_report', 'poseReport', 'pose_contract'])
+const TWIN_PROVENANCES = new Set(['LIVE', 'REPLAY', 'DEMO'])
+
+/** Per-payload provenance override: a feed may mix LIVE pose fixes with
+ * DEMO simulated maps on one response — the payload's own label wins over
+ * the transport default. Unknown values fall back (never upgraded). */
+function provOf(v: unknown, fallback: TwinProvenance): TwinProvenance {
+  return typeof v === 'string' && TWIN_PROVENANCES.has(v) ? v as TwinProvenance : fallback
+}
 
 /** Depth-bounded walk collecting contract payloads. Discriminator
  * (`contract`) matches win; conventional carrier keys get schema
@@ -69,20 +77,20 @@ function collectPayloads(
     return
   }
   const o = root as Record<string, unknown>
-  if (o.contract === OCCUPANCY_GRID_CONTRACT) { maps.push({ payload: o, provenance, atMicros }); return }
-  if (o.contract === POSE_REPORT_CONTRACT) { poses.push({ payload: o, provenance, atMicros }); return }
+  if (o.contract === OCCUPANCY_GRID_CONTRACT) { maps.push({ payload: o, provenance: provOf(o.provenance, provenance), atMicros }); return }
+  if (o.contract === POSE_REPORT_CONTRACT) { poses.push({ payload: o, provenance: provOf(o.provenance, provenance), atMicros }); return }
   for (const [key, value] of Object.entries(o)) {
     if (isRecord(value) && MAP_KEYS.has(key)) {
       maps.push({
         payload: { schema_version: 1, ...value, contract: value.contract ?? OCCUPANCY_GRID_CONTRACT },
-        provenance, atMicros,
+        provenance: provOf(value.provenance, provenance), atMicros,
       })
       continue
     }
     if (isRecord(value) && POSE_KEYS.has(key)) {
       poses.push({
         payload: { schema_version: 1, ...value, contract: value.contract ?? POSE_REPORT_CONTRACT },
-        provenance, atMicros,
+        provenance: provOf(value.provenance, provenance), atMicros,
       })
       continue
     }
@@ -282,11 +290,16 @@ export class HttpTwinTransport implements TwinFeedTransport {
         if (!res.ok) return
         const body = await res.json() as Record<string, unknown>
         const asArray = (v: unknown) => (Array.isArray(v) ? v : v === undefined || v === null ? [] : [v])
+        // Transport-level provenance: honor an explicit body label
+        // (LIVE|REPLAY|DEMO); default LIVE only for unlabeled endpoints.
+        // Per-payload labels inside maps/poses still override downstream.
+        const bodyProv = body.provenance
         onUpdate({
           maps: asArray(body.maps ?? body.occupancy ?? body.occupancy_grid),
           poses: asArray(body.poses ?? body.pose_reports),
           anchors: asArray(body.anchors ?? body.registered_devices),
-          provenance: 'LIVE',
+          provenance: bodyProv === 'LIVE' || bodyProv === 'REPLAY' || bodyProv === 'DEMO'
+            ? bodyProv : 'LIVE',
           detail: `twin feed ${this.url}`,
         })
       } catch { /* keep last good snapshot; staleness flags downstream */ }

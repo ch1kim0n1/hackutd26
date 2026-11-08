@@ -42,6 +42,28 @@
         {"type": "tcp_connect", "port": 22},
         {"type": "http_health", "port": 8080, "path": "/healthz"}
       ]
+    },
+    {
+      "device_id": "vpi-compute-01",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "address": "10.10.0.41",
+      "label": "Virtual Pi — compute node (datacenter sim)",
+      "checks": [
+        {"type": "ping"},
+        {"type": "tcp_connect", "port": 22}
+      ]
+    },
+    {
+      "device_id": "vpi-sensor-01",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-b",
+      "address": "10.10.0.42",
+      "label": "Virtual Pi — sensor node (datacenter sim)",
+      "checks": [
+        {"type": "ping"},
+        {"type": "tcp_connect", "port": 22}
+      ]
     }
   ]
 }

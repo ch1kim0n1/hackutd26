@@ -32,14 +32,20 @@ TRIGGER_KINDS = {
     "wifi_ap_seen", "wifi_probe", "ble_beacon", "ble_beacon_seen",
     "contact_open", "cabinet_contact_open", "motion", "rf_frame_meta",
     "tag_seen", "device_offline", "posture_finding", "incident_created",
+    "inspection_evidence",
 }
 
 # Kinds that are noise for autonomous triggering (health heartbeats,
-# routine mission progress, explicit close events).
+# routine mission progress, explicit close events). Datacenter routine
+# telemetry (flows, inventories, drift, resource metrics) is persisted as
+# observations for investigation tools but must NOT trigger runs — the
+# SpacetimeDB correlation engine owns alerting and the mission bridge
+# forwards the resulting incident_created event as the trigger.
 IGNORED_KINDS = {
     "device_health", "contact_closed", "cabinet_contact_closed",
     "mission_status", "photo_captured", "door_state", "signal_strength",
-    "temperature",
+    "temperature", "resource_metric", "service_inventory",
+    "network_flow", "config_drift",
 }
 
 MAX_TOOL_CALLS_DEFAULT = int(os.environ.get("SENTINEL_ORCH_MAX_TOOL_CALLS", "8"))
@@ -201,10 +207,18 @@ class Orchestrator:
                 zone_ids = set()
             device_ids = {o.get("device_id") for o in self.state.observations
                           if o.get("device_id")}
+            # Waypoint scope = the surveyed waypoints of the incident's
+            # zone(s) — request_rover_inspection fails closed when the
+            # incident zone has no rover-surveyed checkpoints.
+            waypoint_ids: set[str] = set()
+            registry = getattr(self.state, "waypoints_by_zone", {}) or {}
+            for z in zone_ids:
+                waypoint_ids |= registry.get(z, set())
             ctx = ToolContext(
                 incident_id=incident_id,
                 allowed_zones=zone_ids,
-                allowed_devices=device_ids)
+                allowed_devices=device_ids,
+                allowed_waypoints=waypoint_ids)
             backends = ServiceBackends(self.state, incident_id)
             registry = registry_from_backends(ctx, backends.as_backends())
             inner = InvestigationAgent(self.state.agent_model(), registry,
@@ -236,6 +250,8 @@ class Orchestrator:
         return ids
 
     def _run(self, event: InvestigationEvent) -> dict:
+        if event.incident_id:
+            self._mirror_incident(event)
         incident_id = event.incident_id or self._ensure_incident(event)
         agent = self._agent_for(incident_id)
         brief = self._brief(event)
@@ -285,6 +301,40 @@ class Orchestrator:
                         "event_provenance": event.provenance,
                         "event_kind": event.kind})
         return inc.incident_id
+
+    def _mirror_incident(self, event: InvestigationEvent) -> None:
+        """Events that already carry an incident id (e.g. the
+        SpacetimeDB-correlated incident forwarded by the mission bridge)
+        get a local Incident record under the SAME id so scope checks,
+        notes, assessments and containment proposals all bind to the
+        canonical incident Phantom Command displays. Idempotent."""
+        try:
+            self.state.incidents.get(event.incident_id or "")
+            return
+        except Exception:
+            pass
+        from incident_records.models import (
+            Incident, IncidentState, Severity, TimelineEvent)
+        try:
+            sev = Severity(str((event.data or {}).get("severity") or "medium"))
+        except ValueError:
+            sev = Severity.MEDIUM
+        inc = Incident(
+            incident_id=event.incident_id or "",
+            title=event.summary or f"Mirrored incident: {event.kind}",
+            summary=event.summary or "",
+            state=IncidentState.NEW,
+            severity=sev,
+            zone_id=event.zone_id or "",
+            created_by="orchestrator",
+            provenance={"source": "orchestrator", "event_id": event.event_id,
+                        "event_kind": event.kind,
+                        "external_incident": True})
+        inc.timeline.append(TimelineEvent(
+            seq=1, at=time.time(), actor_id="orchestrator", kind="created",
+            detail={"title": inc.title, "severity": sev.value,
+                    "mirrored": True}))
+        self.state.incidents.incidents[inc.incident_id] = inc
 
     @staticmethod
     def _brief(event: InvestigationEvent) -> str:

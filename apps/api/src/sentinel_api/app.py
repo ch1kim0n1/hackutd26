@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -130,6 +131,13 @@ class ScopeIn(BaseModel):
 
 class ExecuteIn(BaseModel):
     doc: dict[str, Any]
+
+
+class MissionRequestPatch(BaseModel):
+    """Mission-bridge bookkeeping on a queued agent request."""
+    state: str = Field(min_length=1, max_length=32)
+    mission_id: str = Field(default="", max_length=128)
+    detail: str = Field(default="", max_length=500)
 
 
 # ------------------------------------------------------------------ app
@@ -412,6 +420,32 @@ def create_app(seed: bool = True) -> FastAPI:
     def orchestrator_status(uid: str = Depends(actor)):
         _require_agent(uid)
         return _env(state.orchestrator.status())
+
+    # -------- mission requests (agent tool -> authorized dispatch) ------
+    @app.get("/internal/mission-requests")
+    def list_mission_requests(uid: str = Depends(actor)):
+        """Queued rover/sensor action requests raised by investigation
+        tools. The mission bridge drains these into the authorized
+        SpacetimeDB propose/approve path — nothing here executes."""
+        _require_agent(uid)
+        return _env({"items": list(state.mission_requests)})
+
+    @app.post("/internal/mission-requests/{rid}")
+    def update_mission_request(rid: str, body: MissionRequestPatch,
+                               uid: str = Depends(actor)):
+        """Bridge bookkeeping: mark a request proposed/approved/
+        dispatched/completed/failed and attach the SpacetimeDB mission id."""
+        _require_agent(uid)
+        for req in state.mission_requests:
+            if req.get("request_id") == rid:
+                req["state"] = body.state
+                if body.mission_id:
+                    req["mission_id"] = body.mission_id
+                if body.detail:
+                    req["detail"] = body.detail
+                req["updated_at"] = time.time()
+                return _env(req)
+        raise HTTPException(404, f"unknown mission request {rid}")
 
     # ---------------- containment proposals / approvals ----------------
     @app.post("/proposals", status_code=201)
