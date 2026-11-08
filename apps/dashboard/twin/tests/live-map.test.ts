@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fixtureSnapshot } from '../src/command/live/fixture'
 import { mapSnapshot, mapObservationKind, mapZones, mapDevices, mapIncidents, mapEvidence, mapFindings, mapMissions, mapApprovals, mapEvents, mapActivity, mapTelemetry, mapRover } from '../src/command/live/map'
 import { backendToElapsed, toMicros } from '../src/command/live/time'
-import { emptyRows, type LiveRows, type LiveSnapshot } from '../src/command/live/types'
+import { emptyRows, type LiveRows } from '../src/command/live/types'
 import type { MapContext } from '../src/command/live/map'
 
 const ctx: MapContext = { elapsed: 100, backendNowMicros: 1_760_000_000_000_000, provenance: 'REPLAY' }

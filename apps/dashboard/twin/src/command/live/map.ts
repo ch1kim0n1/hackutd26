@@ -13,7 +13,6 @@ export interface MapContext {
 }
 
 const TAG = (p: MapContext) => (p.provenance === 'LIVE' ? 'LIVE' : 'REPLAY')
-const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 
 function hashId(id: string): number {
   let h = 0
@@ -230,7 +229,6 @@ export function mapMissions(rows: LiveRows, ctx: MapContext): Mission[] {
 }
 
 export function mapApprovals(rows: LiveRows, ctx: MapContext): Approval[] {
-  const actionById = new Map(rows.actions.map(a => [a.id, a]))
   const decided = new Map(rows.approvals.map(a => [a.actionId, a]))
   const out: Approval[] = []
   for (const a of rows.actions) {

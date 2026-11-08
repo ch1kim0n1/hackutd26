@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useCommandStore } from '../src/command/store'
-import { createInitialState } from '../src/command/engine'
 import { fixtureSnapshot } from '../src/command/live/fixture'
 
 describe('mode switch', () => {
