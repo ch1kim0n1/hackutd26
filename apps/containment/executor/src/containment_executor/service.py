@@ -93,6 +93,9 @@ class ExecutorService:
     def _body(rec) -> dict:
         return {
             "action_id": rec.action_id,
+            "incident_id": rec.incident_id,
+            "action_type": rec.action_type,
+            "target_id": rec.target_id,
             "state": rec.state.value,
             "verification": rec.verification,
             "error": rec.error,
