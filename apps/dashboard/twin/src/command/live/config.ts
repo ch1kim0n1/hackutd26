@@ -15,16 +15,29 @@ export interface LiveConfig {
   transport: 'real' | 'fixture'
   /** Poll cadence for the API facade snapshot (ms). */
   apiPollMs: number
+  /** Optional dedicated twin spatial feed endpoint (docs/13 §9 —
+   * backend integration request). Empty disables the HTTP transport;
+   * contract payloads embedded in observations are always consumed. */
+  twinFeedUrl: string
+  /** Poll cadence for the twin feed endpoint (ms). */
+  twinPollMs: number
+  /** Force the simulated twin feed even in 'real' transport
+   * (?twin=sim) — for testing before hardware exists. */
+  twinSim: boolean
 }
 
 export function readLiveConfig(env: Record<string, string | undefined> = import.meta.env as unknown as Record<string, string | undefined>): LiveConfig {
   // Runtime override for tests/demos: ?live=fixture forces the replay
   // transport regardless of build-time env.
   let transport: LiveConfig['transport'] = env.VITE_LIVE_TRANSPORT === 'fixture' ? 'fixture' : 'real'
+  let twinSim = env.VITE_TWIN_SIM === '1'
   try {
-    const q = new URLSearchParams(window.location.search).get('live')
-    if (q === 'fixture') transport = 'fixture'
-    if (q === 'real') transport = 'real'
+    const q = new URLSearchParams(window.location.search)
+    const live = q.get('live')
+    if (live === 'fixture') transport = 'fixture'
+    if (live === 'real') transport = 'real'
+    if (q.get('twin') === 'sim') twinSim = true
+    if (q.get('twin') === 'off') twinSim = false
   } catch { /* non-browser env */ }
   return {
     spacetimeUri: env.VITE_SPACETIMEDB_URI ?? 'http://127.0.0.1:3000',
@@ -33,6 +46,9 @@ export function readLiveConfig(env: Record<string, string | undefined> = import.
     apiBase: env.VITE_API_BASE ?? 'http://127.0.0.1:8000',
     transport,
     apiPollMs: Number(env.VITE_API_POLL_MS ?? 5000) || 5000,
+    twinFeedUrl: env.VITE_TWIN_FEED_URL ?? '',
+    twinPollMs: Number(env.VITE_TWIN_POLL_MS ?? 2000) || 2000,
+    twinSim,
   }
 }
 

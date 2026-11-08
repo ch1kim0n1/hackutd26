@@ -140,5 +140,15 @@ const KEYS = { 'puck-a-01': SECRET };
   check('unkeyed device still accepted', r.ok);
 }
 
+// --- data-center node telemetry kinds (apps/datacenter) ---
+for (const kind of ['service_inventory', 'network_flow',
+                    'resource_metric', 'config_drift']) {
+  const r = validateEnvelope(enc({
+    ...canonical, device_id: 'vpi-compute-01', kind,
+    data: { probe: true },
+  }), 'vpi-compute-01');
+  check(`dc kind admitted: ${kind}`, r.ok && r.value.kind === kind);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

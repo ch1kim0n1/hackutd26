@@ -2,12 +2,13 @@ import { Component, Suspense, useEffect, useMemo, useRef, useState, type Compone
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Edges, Html, Line, OrbitControls } from '@react-three/drei'
 import { Bloom, EffectComposer } from '@react-three/postprocessing'
-import { Color, DoubleSide, Group, Mesh, Vector3 } from 'three'
+import { Color, DoubleSide, Group, InstancedMesh, Matrix4, Mesh, Quaternion, Vector3 } from 'three'
 import { Box, Crosshair, Layers3, RotateCcw, ScanLine, Signal, Video } from 'lucide-react'
 import { mapToWorld } from '@/lib/three/coordinates'
 import { useCommandStore } from '../store'
-import type { CameraMode, CommandState, Device, Point } from '../model'
+import type { CameraMode, CommandState, Device, Point, TwinFeedState, TwinOccupancyMap } from '../model'
 import { createFacilityGrid, mergeCollinearWalls, occupancyToWalls } from './occupancy'
+import { OccupancyInstanceSet, planTwinInstances, type TwinInstance } from './occupancyMesh'
 import './twin.css'
 
 const colors = { cyan: '#eab308', purple: '#a8a29e', green: '#bfb6ab', red: '#ef4444', amber: '#fb923c', muted: '#a8a29e' }
@@ -130,7 +131,7 @@ function Rover({ state, selected, reduced }: { state: CommandState; selected: bo
     <mesh position={[0.72, 0.08, 0]} rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[0.22, 0.42, 3]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
     <group ref={scanner}><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><circleGeometry args={[2.8, 32, 0, Math.PI / 6]} /><meshBasicMaterial color={color} transparent opacity={0.075} depthWrite={false} side={DoubleSide} /></mesh></group>
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}><ringGeometry args={[selected ? 1.05 : 0.85, selected ? 1.1 : 0.87, 48]} /><meshBasicMaterial color={color} transparent opacity={0.8} toneMapped={false} /></mesh>
-    <Html position={[0, 1.7, 0]} center zIndexRange={[16, 0]}><button className={`twin-rover-label ${state.rover.stopped ? 'is-stopped' : ''} ${state.rover.stale ? 'is-stale' : ''}`} onClick={() => useCommandStore.getState().select('rover-01')}><span />PHANTOM 01{state.rover.stale ? ' ·STALE' : ''}</button></Html>
+    <Html position={[0, 1.7, 0]} center zIndexRange={[16, 0]}><button className={`twin-rover-label ${state.rover.stopped ? 'is-stopped' : ''} ${state.rover.stale ? 'is-stale' : ''}`} onClick={() => useCommandStore.getState().select('rover-01')}><span />PHANTOM 01{state.rover.stale ? ' ·STALE' : ''}{state.rover.provenance ? ` ·${state.rover.provenance}` : ''}</button></Html>
   </group></Pickable>
 }
 
@@ -195,6 +196,89 @@ function Cameras({ state, reset, reduced }: { state: CommandState; reset: number
   return <OrbitControls ref={controls} target={initialTarget} makeDefault enableDamping={!reduced} dampingFactor={0.09} minDistance={7} maxDistance={68} maxPolarAngle={Math.PI / 2.05} onStart={() => { manualStart.current.copy(camera.position); interacting.current = true; moving.current = false }} onEnd={() => { interacting.current = false; if (manualStart.current.distanceTo(camera.position) > 0.08) lastInteraction.current = performance.now() }} />
 }
 
+// --- Live occupancy feed -> instanced 3D geometry -------------------------
+// Occupied cells become deterministic-height prisms (INFERRED heights —
+// never LiDAR measurements); unknown cells become low ground plates.
+// Instance slots persist by rect key so map revisions rewrite only the
+// instances that actually changed.
+
+const _imPos = new Vector3(); const _imQuat = new Quaternion(); const _imScale = new Vector3(); const _imMat = new Matrix4()
+function writeInstance(mesh: InstancedMesh | null, slot: number, inst: TwinInstance | null) {
+  if (!mesh) return
+  if (inst) { _imPos.set(inst.cx, inst.cy, inst.cz); _imScale.set(inst.sx, inst.sy, inst.sz) }
+  else { _imPos.set(0, -50, 0); _imScale.set(0.001, 0.001, 0.001) }
+  _imMat.compose(_imPos, _imQuat, _imScale)
+  mesh.setMatrixAt(slot, _imMat)
+}
+const INSTANCE_CAPACITY = 8192
+function applyInstanceWrites(mesh: InstancedMesh | null, result: { count: number; writes: { slot: number; instance: TwinInstance | null }[] }) {
+  if (!mesh) return
+  const capacity = mesh.instanceMatrix.array.length / 16
+  for (const w of result.writes) if (w.slot < capacity) writeInstance(mesh, w.slot, w.instance)
+  mesh.count = Math.min(result.count, capacity)
+  mesh.instanceMatrix.needsUpdate = true
+}
+
+function OccupancyMapLayer({ map, labels }: { map: TwinOccupancyMap; labels: boolean }) {
+  const occupiedMesh = useRef<InstancedMesh>(null)
+  const unknownMesh = useRef<InstancedMesh>(null)
+  const occupiedSet = useRef<OccupancyInstanceSet | null>(null)
+  const unknownSet = useRef<OccupancyInstanceSet | null>(null)
+  const plan = useMemo(() => planTwinInstances(map), [map])
+  useEffect(() => {
+    if (!occupiedSet.current) { occupiedSet.current = new OccupancyInstanceSet('occupied'); unknownSet.current = new OccupancyInstanceSet('unknown') }
+    applyInstanceWrites(occupiedMesh.current, occupiedSet.current.update(plan.occupied))
+    applyInstanceWrites(unknownMesh.current, unknownSet.current!.update(plan.unknown))
+  }, [plan])
+  const fx0 = map.origin.x, fx1 = map.origin.x + map.width * map.resolutionM
+  const fy0 = map.origin.y, fy1 = map.origin.y + map.height * map.resolutionM
+  const center = { x: (fx0 + fx1) / 2, y: (fy0 + fy1) / 2 }
+  const border = useMemo(() => [
+    mapToWorld({ x: fx0, y: fy0 }, 0.02), mapToWorld({ x: fx1, y: fy0 }, 0.02),
+    mapToWorld({ x: fx1, y: fy1 }, 0.02), mapToWorld({ x: fx0, y: fy1 }, 0.02),
+    mapToWorld({ x: fx0, y: fy0 }, 0.02),
+  ] as [number, number, number][], [fx0, fx1, fy0, fy1])
+  if (!map.registered) {
+    return <group>
+      <Line points={border} color={colors.amber} dashed dashSize={0.4} gapSize={0.25} transparent opacity={0.5} />
+      {labels && <Html position={[...mapToWorld(center, 0.4)]} center distanceFactor={30} zIndexRange={[11, 0]}><div className="twin-anchor-label is-unregistered">{map.frameId.toUpperCase()} · UNREGISTERED</div></Html>}
+    </group>
+  }
+  return <group>
+    <mesh position={[...mapToWorld(center, 0.004)]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[fx1 - fx0, fy1 - fy0]} />
+      <meshBasicMaterial color="#1c1917" transparent opacity={0.5} depthWrite={false} />
+    </mesh>
+    <Line points={border} color={colors.amber} transparent opacity={0.4} lineWidth={1} />
+    <instancedMesh ref={occupiedMesh} args={[undefined, undefined, INSTANCE_CAPACITY]} frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial color="#b45309" transparent opacity={0.5} depthWrite={false} />
+    </instancedMesh>
+    <instancedMesh ref={unknownMesh} args={[undefined, undefined, INSTANCE_CAPACITY]} frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial color="#3f3f46" transparent opacity={0.28} depthWrite={false} />
+    </instancedMesh>
+    {labels && <Html position={[...mapToWorld({ x: fx0 + 1.2, y: fy1 - 0.8 }, 0.4)]} center distanceFactor={34} zIndexRange={[11, 0]}>
+      <div className="twin-anchor-label">{map.frameId.toUpperCase()} · REV {map.revision}{map.stale ? ' · STALE' : ''}</div>
+    </Html>}
+  </group>
+}
+
+function RegisteredAnchors({ anchors, labels }: { anchors: TwinFeedState['anchors']; labels: boolean }) {
+  return <group>{anchors.map(a => <group key={a.id} position={mapToWorld(a, 0.4)}>
+    <mesh position={[0, 0.35, 0]}><cylinderGeometry args={[0.07, 0.07, 0.7, 8]} /><meshBasicMaterial color="#38bdf8" toneMapped={false} /></mesh>
+    <mesh position={[0, 0.78, 0]}><sphereGeometry args={[0.08, 12, 8]} /><meshBasicMaterial color="#38bdf8" toneMapped={false} /></mesh>
+    {labels && <Html position={[0, 1.15, 0]} center distanceFactor={32} zIndexRange={[14, 0]}><div className="twin-anchor-label">{(a.label ?? a.id).toUpperCase()}</div></Html>}
+  </group>)}</group>
+}
+
+function TwinFeedLayer({ feed, labels }: { feed: TwinFeedState; labels: boolean }) {
+  return <group>
+    {feed.maps.map(map => <OccupancyMapLayer key={map.frameId} map={map} labels={labels} />)}
+    <RegisteredAnchors anchors={feed.anchors} labels={labels} />
+  </group>
+}
+
 function Facility({ labels, heatmap, routes, reset, compact, reduced }: { labels: boolean; heatmap: boolean; routes: boolean; reset: number; compact: boolean; reduced: boolean }) {
   const state = useCommandStore(s => s.state)
   const selected = useCommandStore(s => s.selectedId)
@@ -208,6 +292,7 @@ function Facility({ labels, heatmap, routes, reset, compact, reduced }: { labels
     <Floor heatmap={heatmap} />
     <ZoneOverlays state={state} labels={labels} />
     <Walls />
+    <TwinFeedLayer feed={state.twinFeed} labels={labels} />
     {state.devices.filter(device => device.kind === 'server').map(device => <Rack key={device.id} device={device} selected={selected === device.id || linkedDevices.includes(device.id)} labels={labels && !compact} />)}
     {state.devices.filter(device => device.kind === 'ap' || device.kind === 'sensor').map(device => <Equipment key={device.id} device={device} selected={selected === device.id || linkedDevices.includes(device.id)} heatmap={heatmap} reduced={reduced} running={state.simulation === 'running'} />)}
     {routes && <Line points={route.map(point => mapToWorld(point, 0.06))} color={colors.green} dashed dashSize={0.3} gapSize={0.18} lineWidth={1.8} transparent opacity={0.7} />}
@@ -217,6 +302,12 @@ function Facility({ labels, heatmap, routes, reset, compact, reduced }: { labels
     <Cameras state={state} reset={reset} reduced={reduced} />
     {<EffectComposer multisampling={0}><Bloom intensity={compact ? 0.2 : 0.36} luminanceThreshold={0.8} luminanceSmoothing={0.3} mipmapBlur /></EffectComposer>}
   </>
+}
+
+function TwinFeedStatus({ feed }: { feed: TwinFeedState }) {
+  const primary = feed.maps.find(m => m.registered) ?? feed.maps[0]
+  if (!primary) return null
+  return <div className={`twin-scene-status twin-map-status ${primary.stale ? 'is-stale' : ''}`}><span className="twin-status-dot" /><span>{primary.frameId.toUpperCase()}</span><i>REV {primary.revision} · {primary.provenance}{primary.stale ? ' · STALE' : ''}{primary.registered ? '' : ' · UNREGISTERED'}</i></div>
 }
 
 export default function TwinScene({ compact = false }: { compact?: boolean }) {
@@ -233,12 +324,13 @@ export default function TwinScene({ compact = false }: { compact?: boolean }) {
   return <div className={`twin-scene ${compact ? 'twin-scene-compact' : ''}`} aria-label="Interactive simulated facility digital twin">
     <div className="twin-scene-grid" />
     <div className="twin-scene-status"><span className="twin-status-dot" /><span>SPATIAL MESH</span><i>0.25 M / CELL</i></div>
+    <TwinFeedStatus feed={state.twinFeed} />
     <div className="twin-scene-bearing"><span>N</span><span>↑</span><span>MAP FRAME</span></div>
     <SceneBoundary><Suspense fallback={<div className="twin-fallback">Initializing spatial mesh…</div>}><Canvas camera={{ position: [36, 29, 17], fov: 40, near: 0.1, far: 180 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.setClearColor(new Color('#0a0807')); gl.domElement.setAttribute('aria-label', '3D facility: drag to orbit, scroll to zoom; select equipment using entity controls below') }} fallback={<div className="twin-fallback">WebGL is unavailable. Use the entity controls to inspect this simulated facility.</div>}>
       <Facility labels={labels} heatmap={heatmap} routes={routes} reset={reset} compact={compact} reduced={reduced} />
     </Canvas></Suspense></SceneBoundary>
     <div className="twin-camera-controls" aria-label="Digital twin camera">{cameraModes.map(({ id, label, icon: Icon }) => <button key={id} title={label} aria-label={`${label} camera`} aria-pressed={mode === id} className={mode === id ? 'is-active' : ''} onClick={() => setCamera(id)}><Icon size={14} />{!compact && <span>{label}</span>}</button>)}<span className="twin-controls-divider" /><button aria-label="Reset camera" title="Reset camera" onClick={() => { select(null); setCamera('isometric'); setReset(value => value + 1) }}><Crosshair size={14} /></button></div>
     {!compact && <div className="twin-layer-controls" aria-label="Digital twin layers"><button aria-pressed={labels} onClick={() => setLabels(value => !value)}><Box size={13} />Labels</button><button aria-pressed={heatmap} onClick={() => setHeatmap(value => !value)}><Signal size={13} />RF field</button><button aria-pressed={routes} onClick={() => setRoutes(value => !value)}><ScanLine size={13} />Route</button></div>}
-    <div className="twin-scene-footer"><span>FACILITY A <i>/</i> LEVEL 01</span><span>{state.rover.position.x.toFixed(1)}, {state.rover.position.y.toFixed(1)} <i>M</i></span><span>{state.rover.stale ? 'TELEMETRY STALE' : appMode === 'live' ? 'LIVE TELEMETRY' : 'DEMO TELEMETRY'}</span></div>
+    <div className="twin-scene-footer"><span>FACILITY A <i>/</i> LEVEL 01</span><span>{state.rover.position.x.toFixed(1)}, {state.rover.position.y.toFixed(1)} <i>M</i></span><span>{state.rover.stale ? 'TELEMETRY STALE' : `${state.rover.provenance ?? (appMode === 'live' ? 'LIVE' : 'DEMO')} TELEMETRY`}</span></div>
   </div>
 }

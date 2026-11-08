@@ -1,4 +1,5 @@
-import type { ApiSnapshot, LiveRows, LiveSnapshot } from './types'
+import type { ApiSnapshot, LiveRows, LiveSnapshot, TwinFeedUpdate } from './types'
+import type { TwinFeedTransport } from './twin'
 import { emptyRows } from './types'
 
 export type LivePhase = 'off' | 'connecting' | 'online' | 'degraded' | 'error'
@@ -11,6 +12,8 @@ export interface LiveSyncHandlers {
 export interface LiveSyncDeps {
   rows?: { start(h: { onRows(r: LiveRows): void; onStatus(s: 'connecting' | 'online' | 'error', d: string): void }): Promise<void> | void; stop(): void }
   api?: { snapshot(): Promise<ApiSnapshot>; start?(pollMs: number, cb: (s: ApiSnapshot) => void): void; stop?(): void }
+  /** Optional dedicated twin spatial feed (sim or documented endpoint). */
+  twin?: TwinFeedTransport
   fixture?: boolean
   pollMs?: number
 }
@@ -23,6 +26,7 @@ export interface LiveSyncDeps {
 export class LiveSync {
   private rows: LiveRows = emptyRows()
   private api: ApiSnapshot = { reachable: false, detail: 'awaiting first poll', investigations: [], incidentCount: null }
+  private twin: TwinFeedUpdate | null = null
   private apiTimer: ReturnType<typeof setInterval> | null = null
   private phase: LivePhase = 'off'
   private detail = ''
@@ -43,6 +47,7 @@ export class LiveSync {
       this.detail = 'REPLAY fixture transport'
       this.handlers.onPhase('online', this.detail)
       this.scheduleEmit()
+      this.startTwin()
       return
     }
     this.phase = 'connecting'
@@ -70,6 +75,13 @@ export class LiveSync {
       await poll()
       this.apiTimer = setInterval(() => void poll(), this.deps.pollMs ?? 5000)
     }
+    this.startTwin()
+  }
+
+  private startTwin(): void {
+    const twin = this.deps.twin
+    if (!twin) return
+    twin.start((u) => { this.twin = u; this.scheduleEmit() }, { nowMicros: () => this.computeBackendNow() || Date.now() * 1000 })
   }
 
   private recomputePhase(): void {
@@ -86,6 +98,7 @@ export class LiveSync {
       const backendNowMicros = this.computeBackendNow()
       this.handlers.onSnapshot({
         provenance: this.provenance, rows: this.rows, api: this.api, backendNowMicros,
+        twin: this.twin ?? undefined,
       })
       this.lastEmit = Date.now()
     }, 100)
@@ -105,6 +118,7 @@ export class LiveSync {
     if (this.apiTimer) clearInterval(this.apiTimer)
     if (this.emitTimer) clearTimeout(this.emitTimer)
     this.apiTimer = this.emitTimer = null
+    try { this.deps.twin?.stop() } catch { /* ignore */ }
     try { this.deps.rows?.stop() } catch { /* ignore */ }
     try { this.deps.api?.stop?.() } catch { /* ignore */ }
     this.phase = 'off'

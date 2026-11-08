@@ -1,8 +1,10 @@
 import type {
   AgentRecord, Approval, CommandEvent, Device, DeviceKind, Evidence,
-  Finding, Incident, Mission, Observation, ObservationKind, Point,
+  Finding, Incident, Mission, Observation, ObservationKind,
   Rover, Severity, TelemetrySample, TimelineEntry, Zone,
 } from '../model'
+import { registerFrame } from '../twin/occupancyContract'
+import { mapTwinFeed, type TwinPoseFix } from './twin'
 import type { LiveRows, LiveSnapshot } from './types'
 import { backendToElapsed, toMicros } from './time'
 
@@ -321,42 +323,49 @@ export function mapTelemetry(rows: LiveRows, ctx: MapContext): TelemetrySample[]
 }
 
 // Rover pose telemetry -> twin (issue #116). Pose always comes from
-// received observations — never fabricated. The autonomy sim publishes in
-// its own world frame (unit 'm', frame 'autonomy_map'); the sim room is
-// registered at the facility centre by this documented static transform.
-// Rover-native poses arrive in mm on the surveyed floorplan and are used
-// directly (frame registration there is a documented backend gap).
-const SIM_ROOM_ORIGIN: Point = { x: 12, y: 9 }
+// received observations — never fabricated. Frame registration lives in
+// twin/occupancyContract.ts: 'autonomy_map' gets the documented static
+// sim-room offset (AUTONOMY_MAP_OFFSET = facility centre), surveyed
+// frames are identity, and unregistered frames keep raw coordinates —
+// they are never silently placed. Rover-native poses arrive in mm on
+// the surveyed floorplan and are used directly.
 const ROVER_POSE_STALE_S = 5
 
 interface RoverPoseFix {
   x: number; y: number; heading: number
   atMicros: number; missionId: string | null
+  frameId?: string; provenance?: string
 }
 
 function extractRoverPose(o: LiveRows['observations'][number]): RoverPoseFix | null {
   if (o.kind !== 'mission_status') return null
-  let d: { pose?: unknown; mission_id?: unknown } | null
+  let d: { pose?: unknown; mission_id?: unknown; provenance?: unknown } | null
   try { d = JSON.parse(o.dataJson) as typeof d } catch { return null }
   const p = d?.pose as Record<string, unknown> | null | undefined
   if (!p || typeof p !== 'object') return null
-  let x: number, y: number, autonomyMap = false
+  let x: number, y: number
   if (typeof p.x === 'number' && typeof p.y === 'number') {
     x = p.x; y = p.y
-    autonomyMap = p.frame === 'autonomy_map'
+    if (p.unit === 'mm') { x /= 1000; y /= 1000 }
   } else if (typeof p.x_mm === 'number' && typeof p.y_mm === 'number') {
     x = p.x_mm / 1000; y = p.y_mm / 1000
   } else return null
-  if (autonomyMap) { x += SIM_ROOM_ORIGIN.x; y += SIM_ROOM_ORIGIN.y }
+  const frameId = typeof p.frame === 'string' ? p.frame
+    : typeof p.frame_id === 'string' ? p.frame_id : undefined
+  const reg = registerFrame(frameId ?? '')
+  const offset = reg.kind === 'unregistered' ? { x: 0, y: 0 } : reg.offset
+  const heading = typeof p.heading_rad === 'number' ? p.heading_rad
+    : typeof p.theta === 'number' ? p.theta
+    : typeof p.yaw === 'number' ? p.yaw : 0
   return {
-    x, y,
-    heading: typeof p.heading_rad === 'number' ? p.heading_rad : 0,
+    x: x + offset.x, y: y + offset.y, heading,
     atMicros: toMicros(o.observedAt),
     missionId: typeof d?.mission_id === 'string' ? d.mission_id : null,
+    frameId, provenance: typeof d?.provenance === 'string' ? d.provenance : undefined,
   }
 }
 
-export function mapRover(rows: LiveRows, ctx: MapContext, missions: Mission[]): Rover {
+export function mapRover(rows: LiveRows, ctx: MapContext, missions: Mission[], contractFixes: TwinPoseFix[] = []): Rover {
   const roverDev = rows.devices.find(d => d.type.tag === 'Rover')
   const zoneId = roverDev?.zoneId ?? rows.zones[0]?.id
   const zonePos = new Map(mapZones(rows.zones).map(z => [z.id, z.position]))
@@ -368,6 +377,12 @@ export function mapRover(rows: LiveRows, ctx: MapContext, missions: Mission[]): 
     if (roverDev && o.deviceId !== roverDev.id) continue
     const fix = extractRoverPose(o)
     if (fix && fix.atMicros > 0) fixes.push(fix)
+  }
+  // sentinel.rover.pose_report contract fixes (observation-embedded or
+  // dedicated feed) merge into the same fix stream — newest wins.
+  for (const f of contractFixes) {
+    if (roverDev ? f.deviceId !== roverDev.id : !/rover/i.test(f.deviceId)) continue
+    fixes.push({ x: f.x, y: f.y, heading: f.heading, atMicros: f.atMicros, missionId: null, frameId: f.frameId, provenance: f.provenance })
   }
   fixes.sort((a, b) => a.atMicros - b.atMicros)
   const latest = fixes.at(-1)
@@ -397,6 +412,9 @@ export function mapRover(rows: LiveRows, ctx: MapContext, missions: Mission[]): 
     battery: 100, stopped: false,
     missionId, distance: 0, lidar,
     stale,
+    frameId: latest.frameId,
+    poseAt: at,
+    provenance: latest.provenance,
   }
 }
 
@@ -415,9 +433,10 @@ export function mapSnapshot(snapshot: LiveSnapshot, elapsed: number): { entities
   const events = mapEvents(snapshot.rows, ctx)
   const activity = mapActivity(snapshot.rows, snapshot.api.investigations, ctx)
   const telemetry = mapTelemetry(snapshot.rows, ctx)
-  const rover = mapRover(snapshot.rows, ctx, missions)
+  const twin = mapTwinFeed(snapshot, ctx)
+  const rover = mapRover(snapshot.rows, ctx, missions, twin.poseFixes)
   return {
-    entities: { zones, devices, observations, incidents, evidence, findings, missions, approvals, events, activity, telemetry, rover },
+    entities: { zones, devices, observations, incidents, evidence, findings, missions, approvals, events, activity, telemetry, rover, twinFeed: twin.twinFeed },
     dedupe: {
       events: new Set(events.map(e => e.id)).size,
       observations: new Set(observations.map(o => o.id)).size,

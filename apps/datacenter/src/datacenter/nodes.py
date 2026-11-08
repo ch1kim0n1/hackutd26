@@ -153,6 +153,12 @@ class SimNode:
     missed_heartbeats: int = 0
     uptime_ticks: int = 0
     drift: dict = field(default_factory=dict)  # live config vs baseline
+    # Observed listeners beyond the declared service baseline. Injected by
+    # failure scenarios; reported via `service_inventory` observations.
+    extra_listeners: list = field(default_factory=list)
+    # Optional sustained CPU override (percent) for load scenarios; None =
+    # seeded jitter. Reported via `resource_metric` observations.
+    cpu_pct_override: Optional[float] = None
 
     @property
     def node_id(self) -> str:

@@ -124,10 +124,16 @@ the pose on the twin. Pose is always telemetry-sourced; the twin flags
 (from the fix's `ts`) + per-fix `command_id`, so bridge/sim restarts do
 not duplicate rows.
 
-**Pending (documented):** sim occupancy/grid mapping is NOT bridged — the
-autonomy log-odds map has no surveyed-frame registration (pose frames
-`autonomy_map` vs `surveyed_floorplan` are never comparable, docs/14).
-Only pose + mission status reach the twin today.
+**Occupancy/grid (updated):** the twin now consumes the versioned
+`sentinel.rover.occupancy_grid` / `sentinel.rover.pose_report` contracts
+(docs/13 §9) — embedded in observation `dataJson` or via a dedicated
+`TwinFeedTransport` (`VITE_TWIN_FEED_URL`, or the built-in sim feed in
+fixture/`?twin=sim` mode). Frames register via `registerFrame()`:
+`surveyed_floorplan` is identity, `autonomy_map` gets the static
+sim-room offset, anything else renders as an UNREGISTERED boundary —
+never silently placed. No backend emits these contracts yet; exposing a
+read-only twin feed endpoint is the documented integration request.
+Rendered heights are INFERRED estimates, not LiDAR measurements.
 
 ## Troubleshooting
 

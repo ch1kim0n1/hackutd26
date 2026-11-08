@@ -1,6 +1,6 @@
 import type {
   AgentRecord, Approval, CommandEvent, Device, Evidence, Finding,
-  Incident, Mission, Observation, Rover, TelemetrySample, Zone,
+  Incident, Mission, Observation, Rover, TelemetrySample, TwinFeedState, Zone,
 } from '../model'
 import type {
   Actions, Alerts, Assets, AuditEvents, Approvals, Devices,
@@ -57,6 +57,18 @@ export interface ApiSnapshot {
   incidentCount: number | null
 }
 
+/** Raw twin spatial payloads from a dedicated feed transport (sim or a
+ * documented backend endpoint). Payloads are UNVALIDATED contract
+ * candidates — map.ts parses/validates them like observation-embedded
+ * contracts. */
+export interface TwinFeedUpdate {
+  maps: unknown[]
+  poses: unknown[]
+  anchors: unknown[]
+  provenance: 'LIVE' | 'REPLAY' | 'DEMO'
+  detail: string
+}
+
 export interface LiveSnapshot {
   /** 'LIVE' for real backends, 'REPLAY' for recorded fixtures — never
    * conflated (docs/13 provenance vocabulary). */
@@ -66,6 +78,8 @@ export interface LiveSnapshot {
   /** Newest backend timestamp seen (epoch micros) — anchors the
    * backend-time → simulation-elapsed mapping. */
   backendNowMicros: number
+  /** Latest dedicated twin feed update, when a transport is configured. */
+  twin?: TwinFeedUpdate
 }
 
 /** The entity collections a live snapshot owns outright. */
@@ -82,4 +96,5 @@ export interface LiveEntities {
   activity: AgentRecord[]
   telemetry: TelemetrySample[]
   rover: Rover
+  twinFeed: TwinFeedState
 }

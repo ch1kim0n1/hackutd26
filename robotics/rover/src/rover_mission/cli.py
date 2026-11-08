@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 from .mission_contract import MissionValidator
 from .models import MissionState, MissionType, parse_iso_utc
@@ -30,6 +32,15 @@ def _default_routes_path() -> Path:
         if cand.exists():
             return cand
     raise FileNotFoundError("config/routes.json not found")
+
+
+def _default_inspection_targets_path() -> Optional[Path]:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        cand = parent / "config" / "inspection_targets.json"
+        if cand.exists():
+            return cand
+    return None
 
 
 def _future_iso(seconds: float = 300.0) -> str:
@@ -106,9 +117,8 @@ def _build_service(args, evidence_dir=None):
 
     args.link: 'sim' (default) | 'esp32'. esp32 requires --port and
     pyserial. Real link uses wall clock — no acceleration."""
-    import os as _os
     routes = RouteMap(_default_routes_path())
-    secret = _os.environ.get("ROVER_MISSION_SECRET", "").encode()
+    secret = os.environ.get("ROVER_MISSION_SECRET", "").encode()
     if not secret:
         print("ROVER_MISSION_SECRET not set", file=sys.stderr)
         return None, None, None
@@ -124,12 +134,43 @@ def _build_service(args, evidence_dir=None):
         link = SimulatedLink(tick_s=0.1)
         link.connect()
         clock = _SimClock(0.1)
+
+    # Checkpoint network inspection: registered Pi targets + inspector.
+    # ROVER_INSPECTOR=live enables bounded allowlisted probes; default sim.
+    from .inspection import InspectionRegistry
+    from .netinspect import inspector_from_name
+    targets_path = (getattr(args, "inspection_targets", None)
+                    or _default_inspection_targets_path())
+    registry = (InspectionRegistry.load(targets_path)
+                if targets_path else InspectionRegistry())
+    inspector_name = os.environ.get("ROVER_INSPECTOR", "sim")
+    # ROVER_HARDWARE_TRANSPORT selects the autonomy link for
+    # ROVER_INSPECTOR=hardware (default sim; live is reserved/unbound).
+    hw_transport = None
+    if inspector_name in ("hardware", "hw", "hw-cabinet"):
+        from .hw_adapter import hardware_transport_from_name
+        hw_transport = hardware_transport_from_name(
+            os.environ.get("ROVER_HARDWARE_TRANSPORT", "sim"), clock=clock)
+    try:
+        inspector = inspector_from_name(
+            inspector_name, allowed_addresses=registry.addresses(),
+            allowed_cabinets=registry.cabinet_ids(), clock=clock,
+            hardware_transport=hw_transport)
+    except ValueError as exc:
+        print(f"inspector config error: {exc}", file=sys.stderr)
+        return None, None, None
+
+    from .telemetry import publisher_from_env
     svc = RoverService(
         routes, link,
-        publisher=ConsolePublisher(sys.stdout),
+        # MQTT env -> mission telemetry reaches gateway/SpacetimeDB;
+        # otherwise console (unchanged default for offline runs).
+        publisher=publisher_from_env(),
         config=ServiceConfig(device_id=routes.device_id, secret=secret,
                              evidence_dir=evidence_dir or args.evidence_dir),
         clock=clock,
+        inspector=inspector,
+        inspection_registry=registry,
     )
     return svc, link, clock
 
@@ -273,6 +314,8 @@ def main(argv=None) -> int:
     rp.add_argument("file")
     rp.add_argument("--evidence-dir", default="var/evidence")
     rp.add_argument("--max-steps", type=int, default=20000)
+    rp.add_argument("--inspection-targets", default=None,
+                    help="inspection_targets.json path (default: config/)")
     rp.add_argument("--link", choices=["sim", "esp32"], default="sim",
                     help="motor link: sim (default) or real ESP32 serial")
     rp.add_argument("--port", default="/dev/ttyUSB0",
@@ -284,6 +327,8 @@ def main(argv=None) -> int:
     wp.add_argument("dir", help="inbox dir (e.g. mission-shim output)")
     wp.add_argument("--evidence-dir", default="var/evidence")
     wp.add_argument("--max-steps", type=int, default=20000)
+    wp.add_argument("--inspection-targets", default=None,
+                    help="inspection_targets.json path (default: config/)")
     wp.add_argument("--poll-s", type=float, default=1.0)
     wp.add_argument("--max-missions", type=int, default=0,
                     help="0 = run forever")

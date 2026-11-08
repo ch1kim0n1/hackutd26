@@ -1,0 +1,19 @@
+{
+  "name": "sentinel-mission-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Drains API mission_requests into the authorized SpacetimeDB propose/approve mission path and mirrors auto-correlated incidents to the investigator orchestrator.",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "spacetimedb": "2.14.*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "~5.6.2",
+    "@types/node": "^22.10.0"
+  }
+}

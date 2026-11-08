@@ -75,12 +75,43 @@ Downlink contract — `services/mission-shim/src/transform.ts` input,
 
 ## 5. Observation `kind` values
 
-`OBSERVATION_KINDS` (gateway validate.ts) includes device-health and
-contact/RF event kinds; puck emitters produce `device_health`,
-`wifi_observation`, `cabinet_contact_*`, `ble_observation` (see
-`sensors/pucks/src/puck_core/`). Frontend `ObservationKind` (demo only):
-`unknown | impersonation | tamper | correlated` — UI fixture vocabulary,
-NOT a backend contract.
+`OBSERVATION_KINDS` (gateway validate.ts ≡ spacetimedb lib.ts — keep in
+sync) includes device-health, contact/RF event kinds, and the
+data-center node telemetry kinds below; puck emitters produce
+`device_health`, `wifi_observation`, `cabinet_contact_*`,
+`ble_observation` (see `sensors/pucks/src/puck_core/`). Frontend
+`ObservationKind` (demo only): `unknown | impersonation | tamper |
+correlated` — UI fixture vocabulary, NOT a backend contract.
+
+### Data-center node telemetry (added for the virtual Pi fleet)
+
+`apps/datacenter` emits these kinds inside the SAME canonical envelope
+(`schema_version`, `event_id`, `device_id` from topic, per-device `seq`,
+`observed_at`, `kind`, `zone_id`, `data`, optional `signature`). Future
+physical Raspberry Pi monitoring agents MUST use this identical
+contract — kind names and `data` shapes are the stable interface:
+
+| kind | `data` shape (objective fields only — no verdict labels) |
+|---|---|
+| `device_health` | `{status: ok\|degraded\|fault\|stale, note, firmware, recovered?: true, ...}` — `recovered: true` marks a revive/heal signal |
+| `service_inventory` | `{listeners: [{name, port, proto, version, expected}], unexpected: [{name, port, proto}]}` — `unexpected` = listeners outside the node's own baseline |
+| `network_flow` | `{src, dst, proto, dst_port?, packets, bytes, duration_s, direction?, distinct_dst_ports?, flags?}` — NetFlow-style facts; classification is the correlator's job |
+| `resource_metric` | `{cpu_pct, mem_pct, load1, interval_s}` — pure metrics; high CPU alone is NOT an anomaly |
+| `config_drift` | `{key, baseline, live, resolved}` — config-vs-baseline diff report |
+| `temperature` | `{celsius, sensor}` (pre-existing) |
+
+Correlation (`spacetimedb/src/lib.ts`) is data-aware for these kinds:
+`device_health` correlates on `data.status` (`ok` heartbeats never
+alert), `service_inventory` on non-empty `unexpected`, `config_drift`
+on `resolved !== true`, `network_flow` on objective thresholds
+(≥8 distinct dst ports, ≥64 MiB, or known-bad dst port). Recovery
+signals (`device_health` ok+`recovered`, `config_drift` resolved,
+clean `service_inventory`) resolve matching open auto-alerts and move
+linked incidents to `recovery` when the lifecycle permits.
+`resource_metric`, `temperature`, and benign flows produce no
+alert/incident. Attack-scenario ground truth lives in
+`apps/datacenter/artifacts/*/ground_truth.json` — evaluation-only,
+never published to MQTT/SpacetimeDB and never visible to Nemotron.
 
 ## 6. Frontend adapter boundary (`apps/dashboard/twin/src/command/adapters.ts`)
 
@@ -115,3 +146,107 @@ until issue #98.
   smoke **BLOCKED (B2)**.
 - Frontend: vitest **23/23**, `tsc --noEmit` clean, `vite build` OK.
 - `autonomy/` modules import cleanly; no test suite exists (B6).
+
+## 9. Twin spatial feed contracts (frontend-implemented; backend transport pending)
+
+The dashboard twin consumes two versioned payload contracts, implemented
+in `apps/dashboard/twin/src/command/twin/occupancyContract.ts`. They are
+**frontend contracts**: the dashboard parses, validates, and renders them
+today, but no backend currently emits them — producing them is a
+documented integration request, not a competing API.
+
+### `sentinel.rover.occupancy_grid` v1
+
+```json
+{
+  "contract": "sentinel.rover.occupancy_grid",
+  "schema_version": 1,
+  "frame_id": "surveyed_floorplan",
+  "resolution_m": 0.25,
+  "width": 96, "height": 72,
+  "origin": { "x": 0.0, "y": 0.0 },
+  "revision": 12,
+  "timestamp": "2026-11-07T18:42:00.000Z",
+  "cells": [-1, 0, 100, "..."],
+  "anchors": [{ "id": "pi-edge-01", "x": 21.0, "y": 6.0, "label": "PI-EDGE-01" }]
+}
+```
+
+- `cells` is row-major (`cells[iy * width + ix]`), length `width*height`.
+- Cell semantics follow ROS OccupancyGrid: `-1` unknown, `0` free,
+  `100` occupied; intermediate values are probability classified at the
+  50 threshold. **Normalization:** if every value lies in `[-1, 1]` the
+  array is treated as legacy normalized `0..1` probability and scaled
+  ×100 — deterministic and identical for the existing demo grid
+  (threshold 0.5 ≡ 50).
+- `origin` is the frame_id-space coordinate of cell (0,0)'s lower-left
+  corner; cell (ix,iy) spans `[origin + i·res, origin + (i+1)·res)`.
+- `revision` is monotonic per `frame_id`; `timestamp` versions each
+  snapshot. The twin keeps the newest revision per frame (timestamp
+  breaks ties) and flags maps stale after 30 s without an update.
+- `anchors` are registered surveyed positions (puck/Pi-class devices)
+  in the map's frame; unregistered-frame anchors are dropped, never
+  silently placed.
+- Limits: ≤512×512 dims, ≤262,144 cells, ≤500 m extent — enforced at
+  parse time so malformed payloads cannot allocate unbounded geometry.
+
+### `sentinel.rover.pose_report` v1
+
+```json
+{
+  "contract": "sentinel.rover.pose_report",
+  "schema_version": 1,
+  "device_id": "rover-01",
+  "x": 3.0, "y": 4.0, "theta": 1.25,
+  "unit": "m",
+  "frame_id": "surveyed_floorplan",
+  "timestamp": "2026-11-07T18:42:00.000Z",
+  "provenance": "SIM"
+}
+```
+
+- `x`/`y` in metres (`unit: "mm"` accepted, divided by 1000); `theta`
+  in radians CCW from frame +x (also accepts `heading_rad`/`yaw`).
+- Fixes merge into the same stream as `mission_status` observation
+  poses — newest timestamp wins; staleness (>5 s) zeroes speed and
+  flags the rover.
+
+### Frame registration
+
+`registerFrame()` in `occupancyContract.ts` is the only transform the
+twin applies: `surveyed_floorplan`/`facility`/`floorplan` are identity,
+`autonomy_map` gets the documented static sim-room offset
+(`AUTONOMY_MAP_OFFSET = {x:12, y:9}`, same as `live/map.ts`), and any
+other `frame_id` is **unregistered** — geometry keeps its raw
+coordinates behind an amber UNREGISTERED boundary and is never silently
+placed on the facility map (docs/14: autonomy and surveyed frames are
+not comparable without alignment).
+
+### Transport paths (frontend adapters only)
+
+1. **Embedded contracts** — payloads nested inside observation
+   `dataJson` (depth ≤5, carrier keys `occupancy_grid`/`pose_report` or
+   bare `contract` discriminators) ride the frozen telemetry pipeline
+   today, bounded by the 8 KiB envelope cap — suitable for pose reports
+   and small maps.
+2. **Dedicated feed** — `TwinFeedTransport` in `live/twin.ts`:
+   `SimTwinTransport` (DEMO/REPLAY-labelled, used by fixture mode and
+   `?twin=sim`) and `HttpTwinTransport` polling `VITE_TWIN_FEED_URL`
+   (`GET` → `{maps?, poses?, anchors?|registered_devices?}`). **Backend
+   request:** expose a read-only twin feed endpoint serving these
+   contract payloads; the frontend is already wired for it.
+
+### Rendering semantics
+
+- Occupied cells merge into deterministic maximal rectangles rendered
+  as instanced boxes. **Heights are INFERRED presentation estimates**
+  (deterministic per rect identity, 0.35–1.3 m) — never LiDAR or
+  surveyed measurements; the UI labels them as such.
+- Instance slots persist by rect key (`OccupancyInstanceSet`), so a
+  revision that changes a few cells rewrites only affected instances.
+- Unknown cells render as low ground plates (unmapped ≠ free); free
+  cells show the facility floor.
+- Map +x → world +X, map +y → world −Z (three.js Y-up), identical to
+  the existing `mapToWorld` convention — occupancy geometry, rover
+  pose, Pi anchors, devices, and incident markers share one
+  coordinate system.

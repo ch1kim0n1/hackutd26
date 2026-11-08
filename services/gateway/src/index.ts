@@ -142,16 +142,36 @@ function notifyInvestigation(v: {
   observedAtMicros: bigint; dataJson: string; traceId: string;
 }): void {
   if (!config.investigationEventUrl) return;
+  // Forward the FULL structured observation payload — Nemotron tools read
+  // data fields (flow facts, service lists, mission/incident linkage),
+  // not just the summary string. Bounded by the same 8KiB data cap the
+  // envelope already enforced.
+  let data: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(v.dataJson);
+    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      data = parsed as Record<string, unknown>;
+    }
+  } catch { /* dataJson was validated upstream; keep empty on paranoia */ }
+  const str = (k: string): string | undefined => {
+    const val = data[k];
+    return typeof val === 'string' && val.length > 0 && val.length <= 128 ? val : undefined;
+  };
   const body = JSON.stringify({
     event_id: v.eventId,
     kind: v.kind,
     source: 'observation',
     device_id: v.deviceId,
     zone_id: v.zoneId,
+    // Rover/inspection telemetry carries its originating incident + mission
+    // inside data — surface them so the orchestrator attaches evidence to
+    // the right incident instead of opening a detached one.
+    incident_id: str('incident_id'),
+    mission_id: str('mission_id'),
     provenance: 'LIVE',
     observed_at: new Date(Number(v.observedAtMicros) / 1000).toISOString(),
     summary: `${v.kind} on ${v.deviceId}`,
-    data: { seq_trace: v.traceId, payload: v.dataJson.slice(0, 500) },
+    data: { seq_trace: v.traceId, ...data },
   });
   fetch(config.investigationEventUrl, {
     method: 'POST',

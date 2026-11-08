@@ -29,9 +29,23 @@ def canonical_json(value) -> str:
                       ensure_ascii=True)
 
 
+def _js_canonical_numbers(value):
+    """JSON.parse + JSON.stringify (the gateway's canonical form) has no
+    int/float distinction: 95.0 re-serializes as 95. Python's json.dumps
+    emits 95.0, which would break HMAC parity, so integral floats are
+    normalized to int before signing."""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, dict):
+        return {k: _js_canonical_numbers(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_js_canonical_numbers(v) for v in value]
+    return value
+
+
 def sign_observation(obs: dict, secret: bytes) -> str:
     """HMAC-SHA256 over the 8 signed fields, matching gateway verify."""
-    body = {k: obs[k] for k in SIGNED_FIELDS}
+    body = {k: _js_canonical_numbers(obs[k]) for k in SIGNED_FIELDS}
     return hmac.new(secret, canonical_json(body).encode(),
                     hashlib.sha256).hexdigest()
 

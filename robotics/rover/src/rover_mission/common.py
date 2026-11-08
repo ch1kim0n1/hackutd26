@@ -623,7 +623,8 @@ def evidence_to_common(evidence, *, device_id: str = "",
         "provenance": prov,
     }
     for f in ("command_id", "waypoint_id", "camera_id", "received_at",
-              "width", "height", "format"):
+              "width", "height", "format", "incident_id",
+              "target_device_id", "cabinet_id"):
         if evidence.get(f) is not None:
             out[f] = evidence[f]
     if isinstance(evidence.get("pose"), Mapping):
