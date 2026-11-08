@@ -22,6 +22,11 @@ export const OBSERVATION_KINDS = new Set([
   'temperature',
   'door_state',
   'signal_strength',
+  // Data-center node telemetry (apps/datacenter; docs/13 section 5).
+  'service_inventory',
+  'network_flow',
+  'resource_metric',
+  'config_drift',
 ]);
 
 export const MAX_PACKET_BYTES = 16 * 1024;

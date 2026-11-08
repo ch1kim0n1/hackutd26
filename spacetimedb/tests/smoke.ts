@@ -310,6 +310,144 @@ async function main() {
   check('scope entry created', scopes.length === 1);
   check('scope status suspected not confirmed', (scopes[0] as any).impactStatuses[0].tag.toLowerCase().replace(/_/g,'') === 'suspectedexposed');
 
+  // ---- data-center node telemetry (virtual Pi fleet, apps/datacenter) ----
+  // Same canonical envelope as physical agents; correlation is data-aware.
+  await admin.reducers.upsertZone({ id: 'lab-b', name: 'Network Lab B', boundsJson: '{}', waypoints: [] });
+  await admin.reducers.upsertZone({ id: 'bench-row', name: 'Bench Row', boundsJson: '{}', waypoints: [] });
+  for (const [did, zone] of [
+    ['vpi-compute-01', 'rack-01'], ['vpi-network-01', 'lab-b'],
+    ['vpi-sensor-01', 'rack-01'], ['vpi-mgmt-01', 'bench-row'],
+  ] as const) {
+    await admin.reducers.upsertDevice({ id: did, type: 'other', zoneId: zone, firmware: 'vpi-sim-0.1' });
+  }
+  commander.subscriptionBuilder().subscribe((tb) => tb.deviceFeed.build());
+  await sleep(400);
+
+  const dcAlerts = () =>
+    [...commander.db.opsAlertFeed.iter()].filter((a: any) =>
+      String(a.ruleId).startsWith('node.') || String(a.ruleId).startsWith('dc.'));
+  let dcSeq = 100n;
+  const dcIngest = (deviceId: string, zoneId: string, kind: string,
+                    data: unknown, observedMicros: bigint = nowMicros) =>
+    gateway.reducers.ingestObservation({
+      eventId: `evt-dc-${deviceId}-${dcSeq}`, deviceId, kind, seq: dcSeq++,
+      observedAtMicros: observedMicros, zoneId,
+      dataJson: JSON.stringify(data), trustTier: 'gateway_validated',
+      traceId: `dc-${deviceId}`,
+    });
+
+  // benign telemetry: ok heartbeat, high CPU metric, ordinary flow -> nothing
+  await dcIngest('vpi-compute-01', 'rack-01', 'device_health',
+    { status: 'ok', note: 'heartbeat', uptime_s: 60 });
+  await dcIngest('vpi-compute-01', 'rack-01', 'resource_metric',
+    { cpu_pct: 99.0, mem_pct: 81.0, load1: 8.2, interval_s: 10 });
+  await dcIngest('vpi-network-01', 'lab-b', 'network_flow',
+    { src: '192.0.2.10', dst: '192.0.2.102', proto: 'tcp', dst_port: 9100,
+      packets: 20, bytes: 4000, duration_s: 0.5, direction: 'ingress' });
+  await sleep(600);
+  check('benign dc telemetry raises no alerts', dcAlerts().length === 0,
+    `got ${dcAlerts().length}`);
+
+  // node fault -> high-severity auto incident
+  await dcIngest('vpi-sensor-01', 'rack-01', 'device_health',
+    { status: 'fault', note: 'simulated power loss' });
+  await sleep(600);
+  const faultAlerts = dcAlerts().filter((a: any) => a.ruleId === 'node.health_fault');
+  check('node fault -> one alert', faultAlerts.length === 1, `got ${faultAlerts.length}`);
+  const faultIncId = (faultAlerts[0] as any)?.incidentId as string;
+  check('node fault -> linked auto incident', typeof faultIncId === 'string' && faultIncId.length > 0);
+  const faultInc = [...commander.db.incidentFeed.iter()].find((i: any) => i.id === faultIncId) as any;
+  check('fault incident in commander feed',
+    !!faultInc && String(faultInc.status.tag).toLowerCase() === 'new');
+  // device record reflects reported status
+  const devRow = [...commander.db.deviceFeed.iter()].find((d: any) => d.id === 'vpi-sensor-01') as any;
+  check('device status fault reflected',
+    String(devRow?.status?.tag).toLowerCase() === 'fault', JSON.stringify(devRow?.status));
+
+  // same 5-min bucket repeat -> deduped, still one incident
+  await dcIngest('vpi-sensor-01', 'rack-01', 'device_health',
+    { status: 'fault', note: 'simulated power loss' });
+  await sleep(500);
+  check('same-bucket fault deduped',
+    dcAlerts().filter((a: any) => a.ruleId === 'node.health_fault').length === 1);
+  // different bucket (observed 6min earlier) -> new incident allowed
+  await dcIngest('vpi-sensor-01', 'rack-01', 'device_health',
+    { status: 'fault', note: 'simulated power loss' }, nowMicros - 360_000_000n);
+  await sleep(500);
+  check('new-bucket fault -> second incident',
+    dcAlerts().filter((a: any) => a.ruleId === 'node.health_fault').length === 2);
+
+  // degraded -> alert only, no incident
+  await dcIngest('vpi-mgmt-01', 'bench-row', 'device_health',
+    { status: 'degraded', note: 'config drift: ssh_password_auth' });
+  await sleep(500);
+  const degAlerts = dcAlerts().filter((a: any) => a.ruleId === 'node.health_degraded');
+  check('degraded -> alert, no incident',
+    degAlerts.length === 1 && !(degAlerts[0] as any).incidentId,
+    `got ${degAlerts.length} alerts`);
+
+  // unexpected service listener -> incident; clean inventory -> resolves
+  await dcIngest('vpi-compute-01', 'rack-01', 'service_inventory',
+    { listeners: [{ name: 'sshd', port: 22, proto: 'tcp', expected: true },
+                  { name: 'minerd', port: 3333, proto: 'tcp', expected: false }],
+      unexpected: [{ name: 'minerd', port: 3333, proto: 'tcp' }] });
+  await sleep(500);
+  const svcAlerts = dcAlerts().filter((a: any) => a.ruleId === 'dc.unexpected_service');
+  check('unexpected service -> incident',
+    svcAlerts.length === 1 && !!(svcAlerts[0] as any).incidentId);
+  await dcIngest('vpi-compute-01', 'rack-01', 'service_inventory',
+    { listeners: [{ name: 'sshd', port: 22, proto: 'tcp', expected: true }],
+      unexpected: [] });
+  await sleep(500);
+  const svcAfter = dcAlerts().filter((a: any) => a.ruleId === 'dc.unexpected_service');
+  check('clean inventory resolves service alert',
+    svcAfter.length === 1 && String((svcAfter[0] as any).state.tag).toLowerCase() === 'resolved',
+    JSON.stringify((svcAfter[0] as any)?.state));
+
+  // config drift -> incident; resolved drift -> clears the alert
+  await dcIngest('vpi-mgmt-01', 'bench-row', 'config_drift',
+    { key: 'ssh_password_auth', baseline: false, live: true, resolved: false });
+  await sleep(500);
+  const driftAlerts = dcAlerts().filter((a: any) => a.ruleId === 'dc.config_drift');
+  check('config drift -> incident',
+    driftAlerts.length === 1 && !!(driftAlerts[0] as any).incidentId);
+  await dcIngest('vpi-mgmt-01', 'bench-row', 'config_drift',
+    { key: 'ssh_password_auth', baseline: false, live: false, resolved: true });
+  await sleep(500);
+  const driftAfter = dcAlerts().filter((a: any) => a.ruleId === 'dc.config_drift');
+  check('resolved drift clears alert',
+    String((driftAfter[0] as any)?.state.tag).toLowerCase() === 'resolved');
+
+  // suspicious flow (scan summary) -> incident; egress bulk flow too
+  await dcIngest('vpi-sensor-01', 'rack-01', 'network_flow',
+    { src: '198.51.100.66', dst: '192.0.2.101', proto: 'tcp',
+      distinct_dst_ports: 32, packets: 1280, bytes: 51200,
+      duration_s: 4.2, direction: 'ingress' });
+  await sleep(500);
+  const flowAlerts = dcAlerts().filter((a: any) => a.ruleId === 'dc.suspicious_flow');
+  check('suspicious flow -> incident',
+    flowAlerts.length === 1 && !!(flowAlerts[0] as any).incidentId);
+
+  // recovery: drive incident to 'contained' (only legal source of 'recovery'),
+  // then recovered heartbeat resolves alerts and moves it to recovery.
+  await commander.reducers.setIncidentStatus({ incidentId: faultIncId, status: 'triage', expectedVersion: 1n, note: 'ack' });
+  await commander.reducers.setIncidentStatus({ incidentId: faultIncId, status: 'investigating', expectedVersion: 2n, note: 'triage done' });
+  await commander.reducers.setIncidentStatus({ incidentId: faultIncId, status: 'containment_pending', expectedVersion: 3n, note: 'isolating node' });
+  await commander.reducers.setIncidentStatus({ incidentId: faultIncId, status: 'contained', expectedVersion: 4n, note: 'node isolated' });
+  await dcIngest('vpi-sensor-01', 'rack-01', 'device_health',
+    { status: 'ok', note: 'recovered', recovered: true });
+  await sleep(600);
+  const faultAlertsAfter = dcAlerts().filter((a: any) => a.ruleId === 'node.health_fault');
+  check('recovery resolves fault alerts',
+    faultAlertsAfter.every((a: any) => String(a.state.tag).toLowerCase() === 'resolved'),
+    JSON.stringify(faultAlertsAfter.map((a: any) => a.state)));
+  const recInc = [...commander.db.incidentFeed.iter()].find((i: any) => i.id === faultIncId) as any;
+  check('incident moved to recovery',
+    String(recInc?.status.tag).toLowerCase() === 'recovery', String(recInc?.status.tag));
+  const devOk = [...commander.db.deviceFeed.iter()].find((d: any) => d.id === 'vpi-sensor-01') as any;
+  check('device status back online',
+    String(devOk?.status?.tag).toLowerCase() === 'online', JSON.stringify(devOk?.status));
+
   // ---- RBAC negatives ----
   await expectReject('device cannot create incident', device.reducers.createIncident({ title: 'x', description: 'x', severity: 'low', confidence: 'unknown', traceId: 'x' }));
   await expectReject('observer cannot create incident', observer.reducers.createIncident({ title: 'x', description: 'x', severity: 'low', confidence: 'unknown', traceId: 'x' }));

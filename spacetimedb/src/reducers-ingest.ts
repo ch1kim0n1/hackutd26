@@ -127,8 +127,32 @@ export const ingestObservation = spacetimedb.reducer(
       applyMissionStatus(ctx, deviceIdClean, dataClean, eventIdClean, traceClean);
     }
 
-    // Deterministic correlation (issue #18): alert for matched kinds,
-    // incident for incident-tier rules — same transaction, replay-safe.
+    // device_health carries an objective status field — reflect it on the
+    // device record instead of blindly marking 'online' (docs/13 §5:
+    // ok->online, degraded->degraded, fault->fault, stale->offline).
+    // Other kinds keep lastSeen fresh but preserve the reported status.
+    let deviceStatus: DeviceStatusValue = tagValue<DeviceStatusValue>('online');
+    if (kindClean === 'device_health') {
+      try {
+        const d = JSON.parse(dataClean) as Record<string, unknown>;
+        const s = typeof d.status === 'string' ? d.status : '';
+        const mapped: Record<string, string> = {
+          ok: 'online', degraded: 'degraded', fault: 'fault', stale: 'offline',
+        };
+        if (mapped[s] !== undefined) {
+          deviceStatus = tagValue<DeviceStatusValue>(mapped[s]);
+        }
+      } catch {
+        /* data_clean already validated as JSON above — unreachable */
+      }
+    } else if (device.status.tag !== 'online'
+               && device.status.tag !== 'unknown') {
+      deviceStatus = device.status;
+    }
+
+    // Deterministic correlation (issue #18 + data-center rules): alert for
+    // matched kinds, incident for incident-tier rules — same transaction,
+    // replay-safe. Data-aware kinds inspect dataJson.
     correlateObservation(ctx, {
       id: obsRow.id,
       eventId: eventIdClean,
@@ -136,12 +160,13 @@ export const ingestObservation = spacetimedb.reducer(
       kind: kindClean,
       observedAt,
       zoneId: zoneIdClean,
+      dataJson: dataClean,
       traceId: traceClean,
     });
 
     ctx.db.devices.id.update({
       ...device,
-      status: tagValue<DeviceStatusValue>('online'),
+      status: deviceStatus,
       lastSeen: ctx.timestamp,
       lastSeq: seq,
     });

@@ -118,6 +118,12 @@ export const OBSERVATION_KINDS = new Set([
   'temperature',
   'door_state',
   'signal_strength',
+  // Data-center node telemetry (apps/datacenter; same envelope contract
+  // physical Pi monitoring agents must honor — docs/13 section 5).
+  'service_inventory',
+  'network_flow',
+  'resource_metric',
+  'config_drift',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -476,11 +482,211 @@ function pickOncallCommander(ctx: Ctx): Ctx['sender'] | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Data-center node telemetry rules (apps/datacenter virtual Pi fleet).
+// These are DATA-AWARE: device_health correlates on data.status so plain
+// 'ok' heartbeats never alert; the other kinds fire on objective payload
+// fields. Physical Pi agents use the identical envelope + data shapes.
+// ---------------------------------------------------------------------------
+
+const DC_HEALTH_RULES: Record<string, CorrelationRule> = {
+  fault: {
+    ruleId: 'node.health_fault',
+    severity: 'high',
+    incident: true,
+    title: 'Node reported fault',
+  },
+  stale: {
+    ruleId: 'node.health_stale',
+    severity: 'medium',
+    incident: true,
+    title: 'Node heartbeat lost (stale)',
+  },
+  degraded: {
+    ruleId: 'node.health_degraded',
+    severity: 'low',
+    incident: false,
+    title: 'Node degraded',
+  },
+};
+
+const DC_SERVICE_RULE: CorrelationRule = {
+  ruleId: 'dc.unexpected_service',
+  severity: 'high',
+  incident: true,
+  title: 'Unexpected service listener detected',
+};
+
+const DC_DRIFT_RULE: CorrelationRule = {
+  ruleId: 'dc.config_drift',
+  severity: 'medium',
+  incident: true,
+  title: 'Configuration drift detected',
+};
+
+const DC_FLOW_RULE: CorrelationRule = {
+  ruleId: 'dc.suspicious_flow',
+  severity: 'high',
+  incident: true,
+  title: 'Suspicious network flow pattern',
+};
+
+// Deterministic flow heuristics — objective thresholds only, no labels.
+const FLOW_SCAN_PORT_THRESHOLD = 8;                    // distinct dst ports
+const FLOW_BULK_BYTES_THRESHOLD = 64n * 1024n * 1024n;  // 64 MiB
+const FLOW_KNOWN_BAD_PORTS = new Set([4444, 5555, 6667, 12345, 31337]);
+
+function parseObsData(dataJson: string): Record<string, unknown> {
+  try {
+    const d: unknown = JSON.parse(dataJson);
+    if (d !== null && typeof d === 'object' && !Array.isArray(d)) {
+      return d as Record<string, unknown>;
+    }
+  } catch {
+    /* fall through */
+  }
+  return {};
+}
+
+function numField(d: Record<string, unknown>, key: string): number | null {
+  const v = d[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/** Objective suspicious-flow check: scan breadth, bulk transfer, or a
+ *  known-bad destination port. Benign lab flows never match. */
+function flowIsSuspicious(d: Record<string, unknown>): boolean {
+  const distinct = numField(d, 'distinct_dst_ports');
+  if (distinct !== null && distinct >= FLOW_SCAN_PORT_THRESHOLD) return true;
+  const bytes = numField(d, 'bytes');
+  if (bytes !== null && BigInt(Math.trunc(bytes)) >= FLOW_BULK_BYTES_THRESHOLD) {
+    return true;
+  }
+  const port = numField(d, 'dst_port');
+  if (port !== null && FLOW_KNOWN_BAD_PORTS.has(Math.trunc(port))) return true;
+  return false;
+}
+
+/** Map an observation to its correlation rule, or undefined for
+ *  non-actionable telemetry (heartbeats, metrics, benign flows). */
+function ruleForObservation(
+  kind: string,
+  dataJson: string
+): CorrelationRule | undefined {
+  const d = parseObsData(dataJson);
+  switch (kind) {
+    case 'device_health': {
+      const status = typeof d.status === 'string' ? d.status : '';
+      return DC_HEALTH_RULES[status];
+    }
+    case 'service_inventory': {
+      const unexp = Array.isArray(d.unexpected) ? d.unexpected : [];
+      return unexp.length > 0 ? DC_SERVICE_RULE : undefined;
+    }
+    case 'config_drift':
+      return d.resolved === true ? undefined : DC_DRIFT_RULE;
+    case 'network_flow':
+      return flowIsSuspicious(d) ? DC_FLOW_RULE : undefined;
+    default:
+      return CORRELATION_RULES[kind];
+  }
+}
+
+/** Recovery signals clear open auto-alerts for the reporting device —
+ *  they never create alerts/incidents themselves. */
+function recoveryRuleIdsFor(kind: string, dataJson: string): string[] | null {
+  const d = parseObsData(dataJson);
+  if (kind === 'device_health' && d.status === 'ok' && d.recovered === true) {
+    return Object.values(DC_HEALTH_RULES).map((r) => r.ruleId);
+  }
+  if (kind === 'config_drift' && d.resolved === true) {
+    return [DC_DRIFT_RULE.ruleId];
+  }
+  if (kind === 'service_inventory'
+      && Array.isArray(d.unexpected) && d.unexpected.length === 0) {
+    return [DC_SERVICE_RULE.ruleId];
+  }
+  return null;
+}
+
+/** Resolve open auto-alerts raised for `deviceId` under `ruleIds`, and
+ *  move linked incidents to `recovery` when the lifecycle allows it. */
+function handleTelemetryRecovery(
+  ctx: Ctx,
+  obs: { deviceId: string; kind: string; eventId: string; traceId: string },
+  ruleIds: string[]
+): void {
+  const wanted = new Set(ruleIds);
+  const incidentIds = new Set<string>();
+  let resolved = 0;
+  for (const alert of ctx.db.alerts.createdAt.filter(new Range<Timestamp>())) {
+    if (!wanted.has(alert.ruleId)) continue;
+    if (alert.state.tag !== 'open' && alert.state.tag !== 'acknowledged') {
+      continue;
+    }
+    // alerts don't carry deviceId — resolve via their first observation
+    const firstObsId = alert.observationIds.length > 0
+      ? alert.observationIds[0]
+      : null;
+    const firstObs = firstObsId === null
+      ? null
+      : ctx.db.observations.id.find(firstObsId);
+    if (firstObs === null || firstObs.deviceId !== obs.deviceId) continue;
+    ctx.db.alerts.id.update({
+      ...alert,
+      state: tagValue<AlertStateValue>('resolved'),
+    });
+    resolved++;
+    if (alert.incidentId.length > 0) incidentIds.add(alert.incidentId);
+  }
+  for (const incidentId of incidentIds) {
+    const inc = ctx.db.incidents.id.find(incidentId);
+    if (inc === null) continue;
+    const canRecover = (INCIDENT_TRANSITIONS[inc.status.tag] ?? []).includes('recovery');
+    if (canRecover) {
+      ctx.db.incidents.id.update({
+        ...inc,
+        status: tagValue<IncidentStatusValue>('recovery'),
+        updatedAt: ctx.timestamp,
+        version: inc.version + 1n,
+      });
+    }
+    postSystemChat(
+      ctx,
+      incidentId,
+      `Telemetry recovery signal (${obs.kind}) from ${obs.deviceId} ` +
+        `(${obs.eventId}); ${resolved} auto-alert(s) resolved` +
+        (canRecover ? ', incident moved to recovery.' : '.'),
+      obs.eventId
+    );
+    audit(ctx, {
+      actor: ctx.sender,
+      operation: 'correlate.recovery',
+      entity: `incident:${incidentId}`,
+      incidentId,
+      after: { deviceId: obs.deviceId, kind: obs.kind, eventId: obs.eventId },
+      traceId: obs.traceId,
+    });
+  }
+  if (resolved > 0 || incidentIds.size > 0) {
+    audit(ctx, {
+      actor: ctx.sender,
+      operation: 'correlate.recovery_scan',
+      entity: `device:${obs.deviceId}`,
+      incidentId: '',
+      after: { deviceId: obs.deviceId, kind: obs.kind, alertsResolved: resolved },
+      traceId: obs.traceId,
+    });
+  }
+}
+
 /**
  * Runs inside the ingest transaction: inserts an alert for every matched
  * observation kind, and for incident-tier rules creates exactly one incident
  * per (rule, device, zone, 5-minute bucket) via correlation_dedupe. Replays
  * of the same event or a second event in the same bucket are no-ops.
+ * Data-center kinds are data-aware (see ruleForObservation); recovery
+ * signals resolve matching open alerts instead of alerting.
  */
 export function correlateObservation(
   ctx: Ctx,
@@ -491,10 +697,16 @@ export function correlateObservation(
     kind: string;
     observedAt: Timestamp;
     zoneId: string;
+    dataJson: string;
     traceId: string;
   }
 ): void {
-  const rule = CORRELATION_RULES[obs.kind];
+  const recoveryRules = recoveryRuleIdsFor(obs.kind, obs.dataJson);
+  if (recoveryRules !== null) {
+    handleTelemetryRecovery(ctx, obs, recoveryRules);
+    return;
+  }
+  const rule = ruleForObservation(obs.kind, obs.dataJson);
   if (rule === undefined) return;
 
   const bucket = obs.observedAt.microsSinceUnixEpoch / CORRELATION_BUCKET_MICROS;

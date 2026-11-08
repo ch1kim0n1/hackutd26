@@ -21,3 +21,4 @@ from .publisher import (  # noqa: F401
     sign_observation,
     verify_observation,
 )
+from . import scenarios  # noqa: F401
