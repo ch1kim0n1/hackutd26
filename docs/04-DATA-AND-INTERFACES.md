@@ -32,3 +32,28 @@ SDR FFT frame: center_frequency_hz,sample_rate_hz,fft_size,bin_width_hz,dbfs_bin
 
 ## Realtime and security
 Private source tables; role-scoped views or trusted projection gateway for subscriptions. Do not leak privileged cross-incident rows. Evidence binary stored separately with short-lived authenticated URLs. Chat rooms and presence permission-checked. Client_nonce and action fingerprint guarantee idempotency; version checks prevent silent overwrite. Use UTC, explicit provenance and trace IDs.
+
+## Flow-decision contract (virtual defense gateway, issue #105)
+
+Simulated allow/block/redirect decisions for authorized lab traffic
+only — implemented in `apps/defense/gateway` (`defense_gateway`,
+schema_version 1). A decision record is a POLICY OUTCOME, never proof
+of enforcement: `enforcement` is always `"simulated"` until the #106
+verified proxy/firewall path exists.
+
+FlowTuple: `flow_id`, `src`/`dst` = {`node_id`, `service`},
+`provenance` (`DEMO|REPLAY|LIVE`, required). Malformed fields
+(non-ASCII, oversized, bad enums) are rejected, not coerced.
+
+FlowDecision: `decision_id`, `flow`, `decision`
+(`allow|block|redirect`), `reason`, `policy_id`+`policy_version`,
+`rule_id` (null = default path), `redirect_to`, `ttl_s`, `decided_at`
+(UTC), `trace_id`, `provenance`, `enforcement`, `engine`,
+`content_hash` (deterministic sha256 over contract fields — the
+correlation key for #106/#108).
+
+FlowPolicy: ordered rules, first match wins; `default_action` is an
+explicit required choice — `deny` (unmatched -> block, fail-closed)
+or `monitor` (unmatched -> allow, logged with `rule_id=null`).
+Decision log: append-only hash-chained JSONL (same pattern as
+`apps/containment/audit`), `verify()` detects tampering.
