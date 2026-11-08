@@ -4,12 +4,12 @@ import { OrbitControls, Html } from "@react-three/drei";
 
 // GLUE-04 contract: items from TwinFeed.stream(sub_id)
 // {kind, ref_id, at, provenance: LIVE|REPLAY|SYNTHETIC, payload, stale}
-// Rover pose derives ONLY from rover_pose telemetry — never fabricated.
+// Rover pose derives ONLY from rover_pose telemetry - never fabricated.
 // Stale items render dimmed + flagged; incident markers link to
 // incident_id + original evidence ref.
 
 const STALE_COLOR = "#fb923c";
-const LIVE_COLOR = "#4ade80";
+const LIVE_COLOR = "#bfb6ab";
 
 function RoverMarker({ pose, stale }) {
   if (!pose) return null;
@@ -62,7 +62,7 @@ export default function Twin({ feed, zones = [], onSelectIncident }) {
   const [items, setItems] = React.useState([]);
 
   React.useEffect(() => {
-    // role+scope come from server-side session — never client claims
+    // role+scope come from server-side session - never client claims
     const sid = feed.subscribe(currentUser());
     setSubId(sid);
     const poll = setInterval(() => setItems(feed.stream(sid)), 1000);

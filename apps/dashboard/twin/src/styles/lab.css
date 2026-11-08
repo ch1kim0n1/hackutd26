@@ -4,12 +4,12 @@ button:disabled { cursor: default; }
 .lab-header { height: 65px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; }
 .lab-main { width: 100%; max-width: 1520px; margin: 0 auto; padding: 32px; }
 .eyebrow { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.13em; }
-.brand-mark { color: var(--primary); display: grid; place-items: center; height: 36px; width: 36px; border: 1px solid #36cff44d; background: #36cff409; border-radius: 8px; }
+.brand-mark { color: var(--primary); display: grid; place-items: center; height: 36px; width: 36px; border: 1px solid #eab3084d; background: #eab30809; border-radius: 8px; }
 .brand-name { font-size: 15px; font-weight: 650; letter-spacing: 0.2em; }
 .example-heading { padding: 4px 0 28px; }
 .example-heading h1 { margin: 13px 0 10px; font-size: clamp(24px, 2.8vw, 36px); line-height: 1.15; font-weight: 550; letter-spacing: -0.035em; }
 .status-dot { width: 5px; height: 5px; border-radius: 100%; background: var(--phantom-healthy); }
-.example-surface { padding: 24px; border: 1px solid var(--border); background: #0c1725; border-radius: 12px; min-width: 0; }
+.example-surface { padding: 24px; border: 1px solid var(--border); background: #171514; border-radius: 12px; min-width: 0; }
 .example-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .gallery-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .token-grid { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 10px; }

@@ -12,10 +12,10 @@ import './security.css'
 
 ModuleRegistry.registerModules([AllCommunityModule])
 const gridTheme = themeQuartz.withParams({
-  backgroundColor: '#0c1623', foregroundColor: palette.text, headerBackgroundColor: '#111e2e',
-  borderColor: '#22364b', accentColor: palette.wall, fontFamily: 'Geist Variable, sans-serif',
-  fontSize: 11, headerFontSize: 9, headerTextColor: palette.muted, rowBorder: { color: '#172a3c' },
-  wrapperBorder: false, wrapperBorderRadius: 0, spacing: 5, oddRowBackgroundColor: '#0d1826',
+  backgroundColor: '#161513', foregroundColor: palette.text, headerBackgroundColor: '#1e1c1a',
+  borderColor: '#353330', accentColor: palette.wall, fontFamily: 'Geist Variable, sans-serif',
+  fontSize: 11, headerFontSize: 9, headerTextColor: palette.muted, rowBorder: { color: '#292725' },
+  wrapperBorder: false, wrapperBorderRadius: 0, spacing: 5, oddRowBackgroundColor: '#181615',
 })
 const kindIcon = { ap: Wifi, ble: Bluetooth, wifi: Radio, server: Server, sensor: Activity, rover: Fingerprint }
 
@@ -42,7 +42,7 @@ export default function NetworkWorkspace() {
   ], [state.zones])
   useEffect(() => { grid.current?.api?.redrawRows() }, [selectedId])
   const topology = useMemo(() => {
-    const nodes: Node[] = [{ id: 'network-core', position: { x: 490, y: 0 }, data: { label: <span className="sec-topology-core"><Network size={14} />PHANTOM CORE</span> }, style: { background: '#132c3c', borderColor: '#36cff4', color: palette.text, width: 160, fontSize: 10 }, selectable: false }]
+    const nodes: Node[] = [{ id: 'network-core', position: { x: 490, y: 0 }, data: { label: <span className="sec-topology-core"><Network size={14} />PHANTOM CORE</span> }, style: { background: '#292725', borderColor: '#eab308', color: palette.text, width: 160, fontSize: 10 }, selectable: false }]
     const edges: Edge[] = []
     state.zones.forEach((zone, zoneIndex) => {
       const zoneDevices = state.devices.filter(device => device.zoneId === zone.id)
@@ -52,9 +52,9 @@ export default function NetworkWorkspace() {
       const items = [anchor, ...children]
       items.forEach((device, index) => {
         const selected = device.id === selectedDevice?.id || !!selectedIncident?.deviceIds.includes(device.id)
-        const color = device.status === 'threat' ? palette.threat : selected ? palette.wall : device.kind === 'server' ? palette.infrastructure : '#34556c'
-        nodes.push({ id: device.id, position: index === 0 ? { x: zoneIndex * 400 + 100, y: 95 } : { x: zoneIndex * 400 + ((index - 1) % 3) * 120, y: 185 + Math.floor((index - 1) / 3) * 75 }, data: { label: <span className="sec-topology-label"><i style={{ background: color }} />{device.name}</span> }, selected, style: { background: selected ? '#153146' : '#101d2c', borderColor: color, color: selected ? palette.text : '#a4b9cc', width: index === 0 ? 150 : 110, borderRadius: 4, fontSize: 9, padding: index === 0 ? 12 : 9 } })
-        edges.push({ id: `edge-${device.id}`, source: index === 0 ? 'network-core' : anchor.id, target: device.id, style: { stroke: device.status === 'threat' ? palette.threat : '#2d4c63', strokeWidth: selected ? 1.7 : 1 }, type: 'smoothstep' })
+        const color = device.status === 'threat' ? palette.threat : selected ? palette.wall : device.kind === 'server' ? palette.infrastructure : '#534f4a'
+        nodes.push({ id: device.id, position: index === 0 ? { x: zoneIndex * 400 + 100, y: 95 } : { x: zoneIndex * 400 + ((index - 1) % 3) * 120, y: 185 + Math.floor((index - 1) / 3) * 75 }, data: { label: <span className="sec-topology-label"><i style={{ background: color }} />{device.name}</span> }, selected, style: { background: selected ? '#2e2c29' : '#1c1b19', borderColor: color, color: selected ? palette.text : '#bdb4a9', width: index === 0 ? 150 : 110, borderRadius: 4, fontSize: 9, padding: index === 0 ? 12 : 9 } })
+        edges.push({ id: `edge-${device.id}`, source: index === 0 ? 'network-core' : anchor.id, target: device.id, style: { stroke: device.status === 'threat' ? palette.threat : '#4a4642', strokeWidth: selected ? 1.7 : 1 }, type: 'smoothstep' })
       })
     })
     return { nodes, edges }
@@ -77,7 +77,7 @@ export default function NetworkWorkspace() {
       </section>
       <section className="pc-panel sec-device-inspect"><div className="pc-panel-head"><div><span className="pc-eyebrow">SIGNAL INSPECTOR</span><h2>{selectedDevice?.name ?? 'No device selected'}</h2></div><Radio size={17} /></div>{selectedDevice && <><div className="sec-device-meta"><Status value={selectedDevice.status} /><span className="sec-mono">{selectedDevice.protocol} / {selectedDevice.address}</span></div><div className="sec-signal-value"><strong>{selectedDevice.rssi}</strong><span>dBm<span>SIMULATED RSSI</span></span><div className="sec-risk-score"><b>{selectedDevice.risk}</b><small>RISK / 100</small></div></div><SignalChart device={selectedDevice} /><dl className="sec-facts"><div><dt>Fingerprint</dt><dd>{selectedDevice.vendor}</dd></div><div><dt>Location</dt><dd>{state.zones.find(zone => zone.id === selectedDevice.zoneId)?.name}</dd></div><div><dt>Last observed</dt><dd>{formatTime(selectedDevice.lastSeen)} UTC</dd></div></dl><button className="sec-text-button" onClick={() => { select(selectedDevice.id); navigate('twin') }}>Locate in digital twin<ArrowUpRight size={14} /></button></>}</section>
     </div>
-    <div className="sec-network-bottom"><section className="pc-panel"><div className="pc-panel-head"><div><span className="pc-eyebrow">RELATIONSHIP MAP</span><h2>Network topology</h2></div><span className="pc-chip">Modeled connections</span></div><div className="sec-topology" data-testid="command-topology"><ReactFlow nodes={topology.nodes} edges={topology.edges} onNodeClick={(_, node) => node.id !== 'network-core' && select(node.id)} fitView fitViewOptions={{ padding: 0.1 }} minZoom={0.2} maxZoom={2} nodesDraggable={false} nodesConnectable={false} colorMode="dark" attributionPosition="bottom-right"><Background gap={24} color="#1c3246" /><Controls showInteractive={false} /></ReactFlow></div><div className="sec-panel-foot"><span><i className="sec-legend-dot sec-purple" />Infrastructure<i className="sec-legend-dot sec-cyan" />Selected<i className="sec-legend-dot sec-red" />Anomaly</span><span>CLICK NODE TO CORRELATE</span></div></section>
+    <div className="sec-network-bottom"><section className="pc-panel"><div className="pc-panel-head"><div><span className="pc-eyebrow">RELATIONSHIP MAP</span><h2>Network topology</h2></div><span className="pc-chip">Modeled connections</span></div><div className="sec-topology" data-testid="command-topology"><ReactFlow nodes={topology.nodes} edges={topology.edges} onNodeClick={(_, node) => node.id !== 'network-core' && select(node.id)} fitView fitViewOptions={{ padding: 0.1 }} minZoom={0.2} maxZoom={2} nodesDraggable={false} nodesConnectable={false} colorMode="dark" attributionPosition="bottom-right"><Background gap={24} color="#312e2b" /><Controls showInteractive={false} /></ReactFlow></div><div className="sec-panel-foot"><span><i className="sec-legend-dot sec-purple" />Infrastructure<i className="sec-legend-dot sec-cyan" />Selected<i className="sec-legend-dot sec-red" />Anomaly</span><span>CLICK NODE TO CORRELATE</span></div></section>
       <section className="pc-panel"><div className="pc-panel-head"><div><span className="pc-eyebrow">OBSERVATION STREAM</span><h2>Network activity</h2></div><Activity size={16} /></div><div className="sec-event-list">{state.events.slice(-7).reverse().map(event => <button key={event.id} className="sec-event" onClick={() => event.entityId && select(event.entityId)} disabled={!event.entityId}><span className="sec-event-time">{formatTime(event.at)}</span><span><b>{event.type.replaceAll('.', ' / ').replaceAll('_', ' ')}</b><span>{event.detail}</span></span><i /></button>)}{state.events.length === 0 && <Empty title="Baseline established" detail="Start the simulation to observe deterministic network activity." />}</div>{relatedFindings.length > 0 && <div className="sec-linked-finding"><span className="pc-eyebrow">CORRELATED FINDING</span><p>{relatedFindings.at(-1)?.title}</p><button className="sec-text-button" onClick={() => { select(relatedFindings.at(-1)!.incidentId); navigate('incidents') }}>Open incident<ArrowUpRight size={13} /></button></div>}</section></div>
   </div>
 }

@@ -45,9 +45,9 @@ export function SignalChart({ device }: { device: Device }) {
       animation: false, backgroundColor: 'transparent',
       aria: { enabled: true, label: { description: `Simulated signal history for ${device.name}: ${device.signalHistory.join(', ')} dBm.` } },
       grid: { left: 42, right: 14, top: 20, bottom: 28 },
-      tooltip: { trigger: 'axis', renderMode: 'richText', backgroundColor: palette.panel, textStyle: { color: palette.text, fontSize: 11 }, borderColor: '#28435b' },
-      xAxis: { type: 'category', boundaryGap: false, data: device.signalHistory.map((_, index) => `${index * 2}s`), axisLabel: { color: palette.muted, fontSize: 9, interval: Math.max(0, Math.floor(device.signalHistory.length / 4)) }, axisTick: { show: false }, axisLine: { lineStyle: { color: '#21364b' } } },
-      yAxis: { type: 'value', min: -100, max: -20, axisLabel: { color: palette.muted, fontSize: 9 }, splitLine: { lineStyle: { color: '#172b3e', type: 'dashed' } } },
+      tooltip: { trigger: 'axis', renderMode: 'richText', backgroundColor: palette.panel, textStyle: { color: palette.text, fontSize: 11 }, borderColor: '#423e3b' },
+      xAxis: { type: 'category', boundaryGap: false, data: device.signalHistory.map((_, index) => `${index * 2}s`), axisLabel: { color: palette.muted, fontSize: 9, interval: Math.max(0, Math.floor(device.signalHistory.length / 4)) }, axisTick: { show: false }, axisLine: { lineStyle: { color: '#35332f' } } },
+      yAxis: { type: 'value', min: -100, max: -20, axisLabel: { color: palette.muted, fontSize: 9 }, splitLine: { lineStyle: { color: '#2a2825', type: 'dashed' } } },
       series: [{ name: radio ? 'Signal strength · dBm' : 'Monitoring signal · dBm', type: 'line', smooth: 0.3, showSymbol: false, data: device.signalHistory, lineStyle: { width: 2, color: device.status === 'threat' ? palette.threat : palette.wall }, areaStyle: { opacity: 0.06, color: palette.wall } }],
     }, true)
   }, [device])

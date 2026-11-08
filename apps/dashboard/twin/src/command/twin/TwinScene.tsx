@@ -10,7 +10,7 @@ import type { CameraMode, CommandState, Device, Point } from '../model'
 import { createFacilityGrid, mergeCollinearWalls, occupancyToWalls } from './occupancy'
 import './twin.css'
 
-const colors = { cyan: '#36CFF4', purple: '#A18AFF', green: '#4CE5A0', red: '#FF5269', amber: '#F5B45F', muted: '#8299B5' }
+const colors = { cyan: '#eab308', purple: '#a8a29e', green: '#bfb6ab', red: '#ef4444', amber: '#fb923c', muted: '#a8a29e' }
 const mapWalls = mergeCollinearWalls(occupancyToWalls(createFacilityGrid()))
 const home: Point = { x: 18, y: 3 }
 const patrol: Point[] = [{ x: 18, y: 3 }, { x: 18, y: 4.5 }, { x: 14, y: 4.5 }, { x: 13, y: 4.5 }, { x: 13, y: 13.5 }, { x: 14, y: 13.5 }, { x: 18, y: 13.5 }, { x: 18, y: 9 }, { x: 18, y: 3 }]
@@ -42,8 +42,8 @@ function Floor({ heatmap }: { heatmap: boolean }) {
     return result
   }, [])
   return <group>
-    <mesh position={[12, -0.12, -9]}><boxGeometry args={[24.7, 0.2, 18.7]} /><meshBasicMaterial color="#0a1623" /><Edges color="#25465a" /></mesh>
-    <Line points={points} segments color="#194152" transparent opacity={0.5} lineWidth={0.5} />
+    <mesh position={[12, -0.12, -9]}><boxGeometry args={[24.7, 0.2, 18.7]} /><meshBasicMaterial color="#151413" /><Edges color="#43403c" /></mesh>
+    <Line points={points} segments color="#3c3936" transparent opacity={0.5} lineWidth={0.5} />
     <Line points={[[0, 0.015, 0], [24, 0.015, 0], [24, 0.015, -18], [0, 0.015, -18], [0, 0.015, 0]]} color={colors.cyan} transparent opacity={0.65} lineWidth={1.5} />
     {[0, 4, 8, 12, 16, 20, 24].map(x => <group key={x} position={[x, 0.03, 0.5]}><Line points={[[0, 0, -0.25], [0, 0, 0.05]]} color={colors.muted} transparent opacity={0.6} /><Html center transform rotation={[-Math.PI / 2, 0, 0]} distanceFactor={9} className="twin-axis-label">{String(x).padStart(2, '0')}</Html></group>)}
     {heatmap && <mesh position={[7, 0.01, -9]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[13.6, 17.5]} /><meshBasicMaterial color={colors.purple} transparent opacity={0.035} depthWrite={false} /></mesh>}
@@ -60,10 +60,10 @@ function Walls() {
 
 function Rack({ device, selected, labels }: { device: Device; selected: boolean; labels: boolean }) {
   const faceLines = useMemo(() => Array.from({ length: 6 }, (_, i) => [[-0.56, 0.4 + i * 0.32, 0.636], [0.56, 0.4 + i * 0.32, 0.636]]).flat() as [number, number, number][], [])
-  const color = device.status === 'threat' ? colors.red : selected ? '#e3f2fe' : colors.purple
+  const color = device.status === 'threat' ? colors.red : selected ? '#e7e5e4' : colors.purple
   return <Pickable id={device.id}><group position={mapToWorld(device.position)}>
-    <mesh position={[0, 1.3, 0]}><boxGeometry args={[1.45, 2.6, 1.25]} /><meshBasicMaterial color="#181d35" transparent opacity={0.88} /><Edges color={color} transparent opacity={selected ? 1 : 0.75} /></mesh>
-    <mesh position={[0, 1.28, 0.635]}><planeGeometry args={[1.15, 2.2]} /><meshBasicMaterial color="#242b49" transparent opacity={0.8} /></mesh>
+    <mesh position={[0, 1.3, 0]}><boxGeometry args={[1.45, 2.6, 1.25]} /><meshBasicMaterial color="#1f1d1c" transparent opacity={0.88} /><Edges color={color} transparent opacity={selected ? 1 : 0.75} /></mesh>
+    <mesh position={[0, 1.28, 0.635]}><planeGeometry args={[1.15, 2.2]} /><meshBasicMaterial color="#2d2b29" transparent opacity={0.8} /></mesh>
     <Line points={faceLines} segments color={color} transparent opacity={0.45} lineWidth={1} />
     {[0.58, 1.22, 1.86].map(y => <mesh key={y} position={[0.42, y, 0.65]}><boxGeometry args={[0.14, 0.04, 0.02]} /><meshBasicMaterial color={device.status === 'threat' ? colors.red : colors.green} toneMapped={false} /></mesh>)}
     <mesh position={[0, 2.64, 0]}><boxGeometry args={[1.54, 0.08, 1.34]} /><meshBasicMaterial color={color} transparent opacity={0.25} /></mesh>
@@ -76,9 +76,9 @@ function Equipment({ device, selected, heatmap, reduced, running }: { device: De
   const sweep = useRef<Mesh>(null)
   useFrame(({ clock }) => { if (sweep.current && !reduced && running) { const scale = 0.55 + ((clock.elapsedTime * 0.22 + device.position.x * 0.1) % 1) * 0.7; sweep.current.scale.setScalar(scale) } })
   const ap = device.kind === 'ap'
-  const color = device.status === 'threat' ? colors.red : selected ? '#e3f2fe' : ap ? colors.cyan : colors.amber
+  const color = device.status === 'threat' ? colors.red : selected ? '#e7e5e4' : ap ? colors.cyan : colors.amber
   return <Pickable id={device.id}><group position={mapToWorld(device.position)}>
-    <mesh position={[0, ap ? 2.3 : 0.85, 0]}><cylinderGeometry args={[ap ? 0.29 : 0.18, ap ? 0.29 : 0.18, ap ? 0.13 : 1.7, 8]} /><meshBasicMaterial color="#112a36" /><Edges color={color} /></mesh>
+    <mesh position={[0, ap ? 2.3 : 0.85, 0]}><cylinderGeometry args={[ap ? 0.29 : 0.18, ap ? 0.29 : 0.18, ap ? 0.13 : 1.7, 8]} /><meshBasicMaterial color="#272523" /><Edges color={color} /></mesh>
     <mesh position={[0, ap ? 2.39 : 1.8, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.15, 0.21, 16]} /><meshBasicMaterial color={color} side={DoubleSide} toneMapped={false} /></mesh>
     {heatmap && ap && <group rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>{[1, 2, 3].map(radius => <mesh key={radius}><circleGeometry args={[radius * 1.35, 48]} /><meshBasicMaterial color={color} transparent opacity={0.018} depthWrite={false} /></mesh>)}<mesh ref={sweep}><ringGeometry args={[3.8, 3.84, 64]} /><meshBasicMaterial color={color} transparent opacity={0.2} depthWrite={false} /></mesh></group>}
     {selected && <Html position={[0, 3, 0]} center zIndexRange={[15, 0]}><div className="twin-object-label is-selected">{device.name}</div></Html>}
@@ -123,10 +123,10 @@ function Rover({ state, selected, reduced }: { state: CommandState; selected: bo
     if (scanner.current && !reduced && !state.rover.stopped && state.simulation === 'running') scanner.current.rotation.y += delta * 0.7
   })
   return <Pickable id="rover-01"><group ref={rover} position={initialPosition.current}>
-    <mesh position={[0, 0.28, 0]}><boxGeometry args={[1.05, 0.38, 0.68]} /><meshBasicMaterial color="#133c35" /><Edges color={color} /></mesh>
-    <mesh position={[0.05, 0.54, 0]}><boxGeometry args={[0.55, 0.17, 0.45]} /><meshBasicMaterial color="#226354" /><Edges color={color} /></mesh>
+    <mesh position={[0, 0.28, 0]}><boxGeometry args={[1.05, 0.38, 0.68]} /><meshBasicMaterial color="#35322f" /><Edges color={color} /></mesh>
+    <mesh position={[0.05, 0.54, 0]}><boxGeometry args={[0.55, 0.17, 0.45]} /><meshBasicMaterial color="#57534e" /><Edges color={color} /></mesh>
     <mesh position={[0.13, 0.74, 0]}><cylinderGeometry args={[0.12, 0.12, 0.23, 12]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
-    {[-0.36, 0.36].flatMap(x => [-0.38, 0.38].map(z => <mesh key={`${x}-${z}`} position={[x, 0.16, z]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.18, 0.18, 0.12, 12]} /><meshBasicMaterial color="#101f25" /><Edges color="#3c7065" /></mesh>))}
+    {[-0.36, 0.36].flatMap(x => [-0.38, 0.38].map(z => <mesh key={`${x}-${z}`} position={[x, 0.16, z]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.18, 0.18, 0.12, 12]} /><meshBasicMaterial color="#1d1c1a" /><Edges color="#68635d" /></mesh>))}
     <mesh position={[0.72, 0.08, 0]} rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[0.22, 0.42, 3]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
     <group ref={scanner}><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><circleGeometry args={[2.8, 32, 0, Math.PI / 6]} /><meshBasicMaterial color={color} transparent opacity={0.075} depthWrite={false} side={DoubleSide} /></mesh></group>
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}><ringGeometry args={[selected ? 1.05 : 0.85, selected ? 1.1 : 0.87, 48]} /><meshBasicMaterial color={color} transparent opacity={0.8} toneMapped={false} /></mesh>
@@ -203,7 +203,7 @@ function Facility({ labels, heatmap, routes, reset, compact, reduced }: { labels
   const remainingRoute = activeMission?.route?.slice(activeMission.routeIndex ?? 0)
   const route = activeMission ? [state.rover.position, ...(remainingRoute?.length ? remainingRoute : [activeMission.target])] : patrol
   return <>
-    <color attach="background" args={['#09121e']} />
+    <color attach="background" args={['#0a0807']} />
     <ambientLight intensity={1} />
     <Floor heatmap={heatmap} />
     <ZoneOverlays state={state} labels={labels} />
@@ -233,7 +233,7 @@ export default function TwinScene({ compact = false }: { compact?: boolean }) {
     <div className="twin-scene-grid" />
     <div className="twin-scene-status"><span className="twin-status-dot" /><span>SPATIAL MESH</span><i>0.25 M / CELL</i></div>
     <div className="twin-scene-bearing"><span>N</span><span>↑</span><span>MAP FRAME</span></div>
-    <SceneBoundary><Suspense fallback={<div className="twin-fallback">Initializing spatial mesh…</div>}><Canvas camera={{ position: [36, 29, 17], fov: 40, near: 0.1, far: 180 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.setClearColor(new Color('#09121e')); gl.domElement.setAttribute('aria-label', '3D facility: drag to orbit, scroll to zoom; select equipment using entity controls below') }} fallback={<div className="twin-fallback">WebGL is unavailable. Use the entity controls to inspect this simulated facility.</div>}>
+    <SceneBoundary><Suspense fallback={<div className="twin-fallback">Initializing spatial mesh…</div>}><Canvas camera={{ position: [36, 29, 17], fov: 40, near: 0.1, far: 180 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.setClearColor(new Color('#0a0807')); gl.domElement.setAttribute('aria-label', '3D facility: drag to orbit, scroll to zoom; select equipment using entity controls below') }} fallback={<div className="twin-fallback">WebGL is unavailable. Use the entity controls to inspect this simulated facility.</div>}>
       <Facility labels={labels} heatmap={heatmap} routes={routes} reset={reset} compact={compact} reduced={reduced} />
     </Canvas></Suspense></SceneBoundary>
     <div className="twin-camera-controls" aria-label="Digital twin camera">{cameraModes.map(({ id, label, icon: Icon }) => <button key={id} title={label} aria-label={`${label} camera`} aria-pressed={mode === id} className={mode === id ? 'is-active' : ''} onClick={() => setCamera(id)}><Icon size={14} />{!compact && <span>{label}</span>}</button>)}<span className="twin-controls-divider" /><button aria-label="Reset camera" title="Reset camera" onClick={() => { select(null); setCamera('isometric'); setReset(value => value + 1) }}><Crosshair size={14} /></button></div>

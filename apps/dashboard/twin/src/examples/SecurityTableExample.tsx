@@ -11,7 +11,7 @@ import { usePhantomStore } from '@/store/use-phantom-store'
 ModuleRegistry.registerModules([AllCommunityModule])
 const theme = themeQuartz.withParams({
   backgroundColor: palette.background, foregroundColor: palette.text,
-  headerBackgroundColor: palette.panel, borderColor: '#263b53',
+  headerBackgroundColor: palette.panel, borderColor: '#3b3834',
   accentColor: palette.wall, fontFamily: 'ui-monospace, monospace', fontSize: 12,
 })
 export default function SecurityTableExample() {

@@ -17,8 +17,8 @@ function App() {
   return (
     <>
       <div className="hud">
-        <b>SENTINEL HIVE</b> — digital twin<br />
-        <span className="demo">DEMO FEED — simulated telemetry</span><br />
+        <b>SENTINEL HIVE</b> - digital twin<br />
+        <span className="demo">DEMO FEED - simulated telemetry</span><br />
         {selected ? (
           <span>
             incident: <b>{selected.payload.incident_id}</b><br />

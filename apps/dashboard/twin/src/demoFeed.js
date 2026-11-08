@@ -1,10 +1,10 @@
-// Demo feed — stands in for TwinFeed/SpacetimeDB until live backend
+// Demo feed - stands in for TwinFeed/SpacetimeDB until live backend
 // is wired. Same contract: subscribe(principal)->sub_id,
 // stream(sub_id)->FeedItem[]. All data SIMULATED, provenance labeled.
 const INCIDENTS = [
   { incident_id: "inc-1", title: "Rogue AP near rack-01",
     x: 2, z: 1, severity: "high" },
-  { incident_id: "inc-2", title: "Cabinet door open — lab-b",
+  { incident_id: "inc-2", title: "Cabinet door open - lab-b",
     x: -3, z: -2, severity: "medium" },
 ];
 
@@ -21,7 +21,7 @@ export class DemoFeed {
   stream(sid) {
     const t = (Date.now() - this.t0) / 1000;
     const items = [];
-    // rover patrols a rounded loop — pose is "telemetry"
+    // rover patrols a rounded loop - pose is "telemetry"
     const px = 3 * Math.cos(t / 12);
     const pz = 3 * Math.sin(t / 12);
     const stale = t > 30 && Math.floor(t / 10) % 2 === 0; // intermittent stale demo
@@ -39,7 +39,7 @@ export class DemoFeed {
       at: Date.now(), provenance: "SYNTHETIC", stale: false,
       payload: { channels: { 1: -62, 6: -48, 11: -71 },
                  bssid: "aa:bb:cc:dd:ee:ff", rssi_dbm: -48,
-                 note: "demo scan — not a real measurement" } });
+                 note: "demo scan - not a real measurement" } });
     return items;
   }
 }

@@ -21,7 +21,7 @@ export default function TelemetryExample() {
   }, [metric])
   return <div className="space-y-4">
     <div className="flex gap-2"><Button variant={metric === 'packets' ? 'default' : 'outline'} onClick={() => setMetric('packets')}>Packet rate</Button><Button variant={metric === 'latency' ? 'default' : 'outline'} onClick={() => setMetric('latency')}>Latency</Button></div>
-    <div ref={element} className="h-[360px] w-full" data-testid="telemetry-chart" role="img" aria-label={`Synthetic ${metric} telemetry, eight fixed samples at 18:00–18:07 UTC`} />
+    <div ref={element} className="h-[360px] w-full" data-testid="telemetry-chart" role="img" aria-label={`Synthetic ${metric} telemetry, eight fixed samples at 18:00-18:07 UTC`} />
     <details className="note"><summary className="cursor-pointer">Accessible sample values</summary><p className="mt-2">{telemetry.time.map((time, i) => `${time}: ${telemetry[metric][i]}`).join(' · ')}</p></details>
     <p className="note">Apache ECharts · fixed samples · 07 Nov 2026, UTC. Hover for values. No timer, telemetry service, or live network collection.</p>
   </div>
