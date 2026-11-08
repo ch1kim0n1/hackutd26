@@ -67,6 +67,9 @@ def main():
     ap.add_argument("--fast", action="store_true", help="sim only: run faster than real time")
     ap.add_argument("--config", default=os.path.join(HERE, "config.yaml"))
     ap.add_argument("--out", default=os.path.join(HERE, "out"))
+    ap.add_argument("--pose-stream", default="",
+                    help="append JSONL pose fixes here for the sim-to-twin "
+                         "bridge (rover_mission.sim_bridge); sim only")
     args = ap.parse_args()
     cfg = yaml.safe_load(open(args.config))
     os.makedirs(args.out, exist_ok=True)
@@ -141,6 +144,16 @@ def main():
             if t - last_save > cfg["save_every_s"]:
                 last_save = t
                 grid.to_image(path=None, pose=pose).save(os.path.join(args.out, "map.png"))
+                if args.pose_stream and args.sim:
+                    # Estimated (scan-matched) pose only — never the sim
+                    # ground truth. Consumed by rover_mission.sim_bridge.
+                    with open(args.pose_stream, "a") as fh:
+                        fh.write(json.dumps({
+                            "t": round(t, 3), "ts": round(time.time(), 3),
+                            "x": round(pose[0], 4),
+                            "y": round(pose[1], 4), "theta": round(pose[2], 4),
+                            "mode": brain.mode, "provenance": "SIM",
+                        }) + "\n")
                 if poster:
                     try:
                         poster.post(cfg["backend_url"].rstrip("/") + "/api/rover-pose",

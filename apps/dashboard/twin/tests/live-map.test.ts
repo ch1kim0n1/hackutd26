@@ -8,6 +8,18 @@ import type { MapContext } from '../src/command/live/map'
 const ctx: MapContext = { elapsed: 100, backendNowMicros: 1_760_000_000_000_000, provenance: 'REPLAY' }
 const snap = fixtureSnapshot()
 
+function poseObs(id: number, seq: number, pose: Record<string, unknown>, observedAtMicros: number): Record<string, unknown> {
+  return {
+    id, eventId: `pose-${id}`, deviceId: 'rover-01', kind: 'mission_status',
+    seq, observedAt: observedAtMicros, receivedAt: observedAtMicros,
+    zoneId: 'ops-floor',
+    dataJson: JSON.stringify({ mission_id: 'sim-patrol', state: 'navigating',
+      provenance: 'SIM',
+      pose: { unit: 'm', frame: 'autonomy_map', source: 'autonomy_sim', ...pose } }),
+    trustTier: { tag: 'GatewayValidated' }, traceId: 't',
+  }
+}
+
 describe('live mappers', () => {
   it('maps zones from boundsJson', () => {
     const zones = mapZones(snap.rows.zones)
@@ -89,10 +101,60 @@ describe('live mappers', () => {
     expect(t1.at(-1)!.traffic).toBeGreaterThan(0) // fixture obs in recent bucket
   })
 
-  it('maps rover to its zone position', () => {
+  it('parks rover at zone anchor flagged stale without pose telemetry', () => {
     const rover = mapRover(snap.rows, ctx, [])
     expect(rover.position.x).toBeGreaterThan(0)
     expect(rover.battery).toBe(100)
+    expect(rover.stale).toBe(true)
+    expect(rover.speed).toBe(0)
+  })
+
+  it('renders rover pose purely from mission_status telemetry', () => {
+    const rows = { ...snap.rows, observations: [
+      ...snap.rows.observations,
+      poseObs(1, 1, { x: 0.5, y: -0.25, heading_rad: 0.3 }, 1_760_000_000_000_000 - 1_000_000),
+      poseObs(2, 2, { x: 1.0, y: -0.25, heading_rad: 0.3 }, 1_760_000_000_000_000 - 500_000),
+    ] }
+    const rover = mapRover(rows as never, ctx, [])
+    // autonomy_map frame -> sim room registered at facility centre (12,9)
+    expect(rover.position.x).toBeCloseTo(13.0)
+    expect(rover.position.y).toBeCloseTo(8.75)
+    expect(rover.heading).toBeCloseTo(0.3)
+    expect(rover.stale).toBe(false)
+    // 0.5 m over 0.5 s -> ~1 m/s, capped at 3
+    expect(rover.speed).toBeCloseTo(1.0)
+  })
+
+  it('marks rover stale when pose telemetry stops', () => {
+    const rows = { ...snap.rows, observations: [
+      poseObs(1, 1, { x: 0.5, y: 0, heading_rad: 0 }, 1_760_000_000_000_000 - 10_000_000),
+    ] }
+    const rover = mapRover(rows as never, ctx, [])
+    expect(rover.stale).toBe(true)
+    expect(rover.speed).toBe(0)
+  })
+
+  it('uses surveyed-frame rover poses without the sim transform', () => {
+    const rows = { ...snap.rows, observations: [
+      { ...poseObs(1, 1, { x_mm: 5000, y_mm: -2500, heading_rad: 1.2 }, 1_760_000_000_000_000 - 1_000_000),
+        dataJson: JSON.stringify({ mission_id: 'm-1', state: 'navigating',
+          pose: { x_mm: 5000, y_mm: -2500, heading_rad: 1.2, confidence: 0.9, source: 'apriltag' } }) },
+    ] }
+    const rover = mapRover(rows as never, ctx, [])
+    expect(rover.position.x).toBeCloseTo(5)
+    expect(rover.position.y).toBeCloseTo(-2.5)
+    expect(rover.heading).toBeCloseTo(1.2)
+  })
+
+  it('ignores non-pose mission_status and other devices', () => {
+    const rows = { ...snap.rows, observations: [
+      { ...poseObs(1, 1, { x: 9, y: 9, heading_rad: 0 }, 1_760_000_000_000_000 - 1_000_000),
+        deviceId: 'puck-wifi-01' },
+      { ...poseObs(2, 2, { x: 9, y: 9, heading_rad: 0 }, 1_760_000_000_000_000 - 1_000_000),
+        dataJson: '{"mission_id":"m","state":"completed"}' },
+    ] }
+    const rover = mapRover(rows as never, ctx, [])
+    expect(rover.stale).toBe(true) // no usable rover-01 pose
   })
 
   it('produces identical entities on snapshot replay (resync-safe)', () => {

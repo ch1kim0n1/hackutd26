@@ -16,7 +16,7 @@ export interface Finding { id: string; incidentId: string; at: number; title: st
 export interface AgentRecord { id: string; at: number; kind: 'observation' | 'correlation' | 'tool' | 'decision' | 'finding' | 'status'; title: string; detail: string; incidentId?: string; tool?: string; outcome?: string }
 export interface Mission { id: string; title: string; type: 'patrol' | 'investigate' | 'waypoint' | 'return'; status: 'queued' | 'en_route' | 'collecting' | 'complete' | 'cancelled'; target: Point; zoneId?: string; incidentId?: string; progress: number; route?: Point[]; routeIndex?: number; routeLength?: number; travelled?: number; collectingAt?: number; collectionElapsed?: number }
 export interface Approval { id: string; at: number; incidentId: string; action: 'isolate-device'; targetId: string; reason: string; status: 'pending' | 'approved' | 'rejected'; decidedAt?: number }
-export interface Rover { position: Point; heading: number; speed: number; battery: number; stopped: boolean; missionId: string | null; distance: number; lidar: number[] }
+export interface Rover { position: Point; heading: number; speed: number; battery: number; stopped: boolean; missionId: string | null; distance: number; lidar: number[]; stale?: boolean }
 export interface TelemetrySample { at: number; traffic: number; signals: number; cpu: number; latency: number }
 export interface CommandEvent { id: string; at: number; type: string; entityId?: string; detail: string }
 export interface CommandState {

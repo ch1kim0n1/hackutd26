@@ -97,6 +97,38 @@ Env overrides: `SPACETIMEDB_URI`, `SPACETIMEDB_DATABASE`,
   provider is used. Nemotron never runs onboard the rover and has no direct
   actuator/shell/firewall access.
 
+## Rover sim → digital twin (#116)
+
+```sh
+# 1. Sim writes estimated-pose fixes (JSONL, provenance SIM)
+cd autonomy
+python3 run.py --sim --fast --duration 120 \
+  --config config_patrol_sim.yaml \
+  --pose-stream /tmp/rover-pose.jsonl --out /tmp/sim-out
+
+# 2. Bridge republishes fixes as rover-shape telemetry over MQTT
+#    (device-rover-01 ACL topic; creds via MQTT_* env — see
+#    deploy/env/mqtt.env produced by bootstrap.sh)
+cd ../robotics/rover
+PYTHONPATH=src MQTT_HOST=127.0.0.1 MQTT_USERNAME=device-rover-01 \
+  MQTT_PASSWORD=... python3 -m rover_mission.sim_bridge \
+  --stream /tmp/rover-pose.jsonl
+```
+
+Path: `run.py` → `sim_bridge` → MQTT `sentinel/v1/rover-01/telemetry` →
+gateway `normalizeTelemetry` → `ingestObservation` (`kind=mission_status`,
+`provenance=SIM`) → `observationFeed` → Phantom Command live mode renders
+the pose on the twin. Pose is always telemetry-sourced; the twin flags
+`stale` after ~5 s without fixes and labels the footer `LIVE`/`SIM` vs
+`DEMO TELEMETRY`. Republishes dedupe via deterministic `observed_at`
+(from the fix's `ts`) + per-fix `command_id`, so bridge/sim restarts do
+not duplicate rows.
+
+**Pending (documented):** sim occupancy/grid mapping is NOT bridged — the
+autonomy log-odds map has no surveyed-frame registration (pose frames
+`autonomy_map` vs `surveyed_floorplan` are never comparable, docs/14).
+Only pose + mission status reach the twin today.
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
