@@ -8,8 +8,8 @@ import { OrbitControls, Html } from "@react-three/drei";
 // Stale items render dimmed + flagged; incident markers link to
 // incident_id + original evidence ref.
 
-const STALE_COLOR = "#f59e0b";
-const LIVE_COLOR = "#22c55e";
+const STALE_COLOR = "#fb923c";
+const LIVE_COLOR = "#4ade80";
 
 function RoverMarker({ pose, stale }) {
   if (!pose) return null;
@@ -51,7 +51,7 @@ function ZoneAssets({ zones }) {
   return zones.map((z) => (
     <mesh key={z.id} position={[z.x, 0.05, z.y]}>
       <boxGeometry args={[z.w || 1, 0.1, z.d || 1]} />
-      <meshStandardMaterial color="#374151" wireframe />
+      <meshStandardMaterial color="#57534e" wireframe />
     </mesh>
   ));
 }
