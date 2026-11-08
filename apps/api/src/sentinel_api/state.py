@@ -21,7 +21,7 @@ from identity.models import PrincipalKind, Role  # noqa: E402
 from identity.service import IdentityService  # noqa: E402
 from incident_records.service import IncidentService  # noqa: E402
 from investigator.agent import InvestigationAgent  # noqa: E402
-from investigator.backends import FakeBackends  # noqa: E402
+from investigator.service_backends import ServiceBackends  # noqa: E402
 from investigator.scripted import FakeResponse, ScriptedModel, tc  # noqa: E402
 from investigator.tools import ToolContext, registry_from_backends  # noqa: E402
 from nemotron_client.provider import ProviderInfo, build_chat_model  # noqa: E402
@@ -84,6 +84,12 @@ class AppState:
     investigator_stack: InvestigatorStack = field(
         default_factory=_default_investigator_stack)
     investigation_runs: list[dict] = field(default_factory=list)
+    # Live investigation backing stores (BlindSpot task): real persisted
+    # observations, queued action requests, agent assessments/messages.
+    observations: list[dict] = field(default_factory=list)
+    mission_requests: list[dict] = field(default_factory=list)
+    agent_assessments: list[dict] = field(default_factory=list)
+    agent_messages: list[dict] = field(default_factory=list)
     _agent_cache: dict = field(default_factory=dict)
     _orchestrator: object = field(default=None, repr=False)
 
@@ -91,6 +97,13 @@ class AppState:
     def investigator_model(self):
         """Backward-compatible alias for the selected ChatModel."""
         return self.investigator_stack.model
+
+    def agent_model(self):
+        """Model instance for one investigation run. Stateful scripted
+        models fork so concurrent per-incident runs each get the full
+        deterministic script; live/stateless models pass through."""
+        model = self.investigator_stack.model
+        return model.fork() if hasattr(model, "fork") else model
 
     @property
     def orchestrator(self):
@@ -138,15 +151,25 @@ class AppState:
         return self.role_of(actor_id) in set(roles)
 
     def investigator_for(self, incident_id: str) -> InvestigationAgent:
-        """One agent+registry per incident scope (cached)."""
+        """One agent+registry per incident scope (cached).
+        Operational path uses ServiceBackends — real stored observations,
+        scope assets, evidence and policy proposals. FakeBackends remains
+        for isolated tests only."""
         if incident_id not in self._agent_cache:
-            backends = FakeBackends()
+            try:
+                inc = self.incidents.get(incident_id)
+                zone_ids = {inc.zone_id} if inc.zone_id else set()
+            except Exception:
+                zone_ids = set()
+            device_ids = {o.get("device_id") for o in self.observations
+                          if o.get("device_id")}
             ctx = ToolContext(incident_id=incident_id,
-                              allowed_zones={"rack-01", "lab-b", "lobby"},
-                              allowed_devices={"device-lab-01", "lab-ap-01"})
+                              allowed_zones=zone_ids,
+                              allowed_devices=device_ids)
+            backends = ServiceBackends(self, incident_id)
             registry = registry_from_backends(ctx, backends.as_backends())
             self._agent_cache[incident_id] = InvestigationAgent(
-                self.investigator_stack.model, registry)
+                self.agent_model(), registry)
         return self._agent_cache[incident_id]
 
 

@@ -12,7 +12,8 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import (BackgroundTasks, Depends, FastAPI, Header,
+                     HTTPException)
 from pydantic import BaseModel, Field
 
 from .state import AppState, build_state
@@ -257,7 +258,8 @@ def create_app(seed: bool = True) -> FastAPI:
         return _env({"items": out, "count": len(out)})
 
     @app.post("/incidents", status_code=201)
-    def create_incident(body: IncidentCreate, uid: str = Depends(actor)):
+    def create_incident(body: IncidentCreate, uid: str = Depends(actor),
+                        background_tasks: BackgroundTasks = BackgroundTasks()):
         gate(uid, "write_incident")
         from incident_records.models import Severity
         try:
@@ -267,6 +269,17 @@ def create_app(seed: bool = True) -> FastAPI:
                 provenance=body.provenance)
         except ValueError as e:
             raise HTTPException(400, str(e))
+        # Actionable incidents trigger a deduplicated automatic
+        # investigation — event_id is unique per incident so replays of
+        # the same creation cannot double-investigate.
+        from .orchestrator import InvestigationEvent
+        ev = InvestigationEvent(
+            event_id=f"incident-{inc.incident_id}", kind="incident_created",
+            source="incident", incident_id=inc.incident_id,
+            zone_id=body.zone_id or "", summary=body.title or body.summary,
+            provenance="LIVE", data={"severity": body.severity})
+        if state.orchestrator.enqueue(ev) == "accepted":
+            background_tasks.add_task(state.orchestrator.pump)
         return _env(_asdict(inc))
 
     @app.get("/incidents/{iid}")
