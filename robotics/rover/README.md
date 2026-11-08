@@ -19,6 +19,7 @@ with SHA-256 artifacts, and mission state telemetry. Contracts:
 | `telemetry.py` | mission event publishers: HTTP gateway / MQTT / console |
 | `inspection.py` | registered Pi targets (`config/inspection_targets.json`), `InspectionReport` evidence model, hashed report store |
 | `netinspect.py` | `NetworkInspector` seam — `SimulatedNetworkInspector` (deterministic scenarios) + `LiveNetworkInspector` (allowlisted targets/checks, bounded timeouts) |
+| `hw_adapter.py` | autonomy compatibility adapter — `inspect_zone` checkpoint → `{mission_id, action: inspect_cabinet, cabinet_id}`; simulated transport default, live transport reserved/unbound |
 | `service.py` | `RoverService` — queue, state machine, evidence, abort/expiry, checkpoint inspection |
 | `cli.py` | `python -m rover_mission …` |
 
@@ -69,6 +70,35 @@ ROVER_INSPECTOR=live ROVER_MISSION_SECRET=… \
     python3 -m rover_mission run-mission mission.json
 ```
 
+### Hardware autonomy adapter (`ROVER_INSPECTOR=hardware`)
+
+`hw_adapter.py` maps the authorized `inspect_zone` checkpoint to the
+physical autonomy command contract:
+
+```json
+{"mission_id": "inspection-001", "action": "inspect_cabinet", "cabinet_id": "rack-02"}
+```
+
+- `cabinet_id` comes only from the target's registered `cabinet_id` in
+  `config/inspection_targets.json` — re-validated against the registry
+  allowlist before a command is built. Never derived from camera markers,
+  AprilTag payloads, or sticker types.
+- `mission_id` is preserved verbatim for correlation/dedup; responses
+  echoing a different `mission_id` or `cabinet_id` are recorded as error
+  evidence, never merged.
+- `SimulatedHardwareTransport` (default) returns deterministic canned
+  responses (`provenance: DEMO`, `synthetic: true`). `ROVER_HARDWARE_TRANSPORT=live`
+  is reserved for the hardware engineer's autonomy link — until bound it
+  refuses closed rather than pretending.
+- Responses normalize into the same `InspectionReport` evidence
+  (mission_id, cabinet_id, target device_id, timestamps, provenance,
+  evidence_refs) through the hashed artifact store + telemetry path.
+
+```sh
+ROVER_INSPECTOR=hardware ROVER_MISSION_SECRET=… \
+    python3 -m rover_mission run-mission mission.json
+```
+
 ## Commands
 
 ```sh
@@ -93,11 +123,13 @@ AprilTag detector for real pose correction.
 cd robotics/rover && python3 -m pytest tests/ -q
 ```
 
-179 tests: contract rejections (forgery, expiry, overspeed, unknown
+202 tests: contract rejections (forgery, expiry, overspeed, unknown
 fixtures, duplicate missions), patrol/inspect/rescan/return-home/stop
 execution, checkpoint network inspection (success, unregistered targets,
 unreachable devices, stale results, sensor failures, live-adapter
-allowlist + bounded probes), evidence hashing, abort, E-stop abort,
+allowlist + bounded probes), hardware autonomy adapter (command shape,
+cabinet allowlist, simulated responses, mismatch/timeout/duplicate/stale
+handling, end-to-end wiring), evidence hashing, abort, E-stop abort,
 mission timeout, navigator obstacle/estop/timeout.
 
 ## Evidence & honesty

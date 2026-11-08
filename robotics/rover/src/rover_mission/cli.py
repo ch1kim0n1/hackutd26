@@ -144,8 +144,21 @@ def _build_service(args, evidence_dir=None):
     registry = (InspectionRegistry.load(targets_path)
                 if targets_path else InspectionRegistry())
     inspector_name = os.environ.get("ROVER_INSPECTOR", "sim")
-    inspector = inspector_from_name(
-        inspector_name, allowed_addresses=registry.addresses(), clock=clock)
+    # ROVER_HARDWARE_TRANSPORT selects the autonomy link for
+    # ROVER_INSPECTOR=hardware (default sim; live is reserved/unbound).
+    hw_transport = None
+    if inspector_name in ("hardware", "hw", "hw-cabinet"):
+        from .hw_adapter import hardware_transport_from_name
+        hw_transport = hardware_transport_from_name(
+            os.environ.get("ROVER_HARDWARE_TRANSPORT", "sim"), clock=clock)
+    try:
+        inspector = inspector_from_name(
+            inspector_name, allowed_addresses=registry.addresses(),
+            allowed_cabinets=registry.cabinet_ids(), clock=clock,
+            hardware_transport=hw_transport)
+    except ValueError as exc:
+        print(f"inspector config error: {exc}", file=sys.stderr)
+        return None, None, None
 
     svc = RoverService(
         routes, link,

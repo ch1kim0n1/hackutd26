@@ -99,6 +99,7 @@ class InspectionTarget:
     ssid: str = ""          # expected wireless identity (sim observations)
     bssid: str = ""         # expected BSSID (sim observations)
     label: str = ""
+    cabinet_id: str = ""    # physical cabinet this Pi serves (hw adapter)
     checks: tuple = ()      # tuple of validated check spec dicts
 
     @classmethod
@@ -135,7 +136,9 @@ class InspectionTarget:
             device_id=data["device_id"], zone_id=data["zone_id"],
             waypoint_id=data["waypoint_id"], address=data["address"],
             ssid=str(data.get("ssid", "")), bssid=str(data.get("bssid", "")),
-            label=str(data.get("label", "")), checks=tuple(uniq),
+            label=str(data.get("label", "")),
+            cabinet_id=str(data.get("cabinet_id", "")),
+            checks=tuple(uniq),
         )
 
 
@@ -184,6 +187,11 @@ class InspectionRegistry:
         """Allowlisted addresses — the live adapter may ONLY touch these."""
         return frozenset(t.address for t in self._by_device.values())
 
+    def cabinet_ids(self) -> frozenset:
+        """Registered cabinet_ids — the hardware adapter's allowlist."""
+        return frozenset(t.cabinet_id for t in self._by_device.values()
+                         if t.cabinet_id)
+
     def __len__(self) -> int:
         return len(self._by_device)
 
@@ -208,6 +216,7 @@ class InspectionReport:
     command_id: str
     device_id: str            # observing rover
     target_device_id: str     # inspected Pi ("" when no target registered)
+    cabinet_id: str           # physical cabinet addressed via hw adapter
     zone_id: str
     waypoint_id: str
     pose: dict
@@ -220,6 +229,7 @@ class InspectionReport:
     synthetic: bool = True
     checks: list = field(default_factory=list)
     observations: list = field(default_factory=list)
+    evidence_refs: list = field(default_factory=list)  # refs reported by the inspector
 
     @property
     def started_at(self) -> str:
@@ -258,6 +268,7 @@ class InspectionReport:
             "command_id": self.command_id,
             "device_id": self.device_id,
             "target_device_id": self.target_device_id,
+            "cabinet_id": self.cabinet_id,
             "zone_id": self.zone_id,
             "waypoint_id": self.waypoint_id,
             "pose": self.pose,
@@ -272,6 +283,7 @@ class InspectionReport:
             "summary": self.summary(),
             "checks": self.checks,
             "observations": self.observations,
+            "evidence_refs": self.evidence_refs,
         }
 
 
@@ -290,6 +302,7 @@ def new_report(ctx: Mapping, **fields) -> InspectionReport:
         "command_id": str(ctx.get("command_id", "")),
         "device_id": str(ctx.get("device_id", "")),
         "target_device_id": str(ctx.get("target_device_id", "")),
+        "cabinet_id": "",
         "zone_id": str(ctx.get("zone_id", "")),
         "waypoint_id": str(ctx.get("waypoint_id", "")),
         "pose": dict(ctx.get("pose") or {}),
@@ -302,6 +315,7 @@ def new_report(ctx: Mapping, **fields) -> InspectionReport:
         "synthetic": True,
         "checks": [],
         "observations": [],
+        "evidence_refs": [],
     }
     base.update(fields)
     return InspectionReport(**base)
@@ -359,6 +373,7 @@ class InspectionEvidenceStore:
             "waypoint_id": report.waypoint_id,
             "incident_id": report.incident_id,
             "target_device_id": report.target_device_id,
+            "cabinet_id": report.cabinet_id,
             "status": report.status,
             "adapter": report.adapter,
             "observed_at": report.completed_at,
@@ -370,6 +385,7 @@ class InspectionEvidenceStore:
             "synthetic": report.synthetic,
             "provenance": report.provenance,
             "pose": report.pose,
+            "evidence_refs": report.evidence_refs,
         }
         meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n")
         self._enforce_retention(zone_dir)
@@ -377,7 +393,7 @@ class InspectionEvidenceStore:
 
     def _enforce_retention(self, zone_dir: Path) -> None:
         reports = sorted(
-            (p for p in zone_dir.glob("insp-*.json")
+            (p for p in zone_dir.glob("*.json")
              if not p.name.endswith(".meta.json")),
             key=lambda p: p.stat().st_mtime, reverse=True)
         for old in reports[self.retention:]:
