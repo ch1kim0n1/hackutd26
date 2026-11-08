@@ -322,16 +322,83 @@ export function mapTelemetry(rows: LiveRows, ctx: MapContext): TelemetrySample[]
   })
 }
 
+// Rover pose telemetry -> twin (issue #116). Pose always comes from
+// received observations — never fabricated. The autonomy sim publishes in
+// its own world frame (unit 'm', frame 'autonomy_map'); the sim room is
+// registered at the facility centre by this documented static transform.
+// Rover-native poses arrive in mm on the surveyed floorplan and are used
+// directly (frame registration there is a documented backend gap).
+const SIM_ROOM_ORIGIN: Point = { x: 12, y: 9 }
+const ROVER_POSE_STALE_S = 5
+
+interface RoverPoseFix {
+  x: number; y: number; heading: number
+  atMicros: number; missionId: string | null
+}
+
+function extractRoverPose(o: LiveRows['observations'][number]): RoverPoseFix | null {
+  if (o.kind !== 'mission_status') return null
+  let d: { pose?: unknown; mission_id?: unknown } | null
+  try { d = JSON.parse(o.dataJson) as typeof d } catch { return null }
+  const p = d?.pose as Record<string, unknown> | null | undefined
+  if (!p || typeof p !== 'object') return null
+  let x: number, y: number, autonomyMap = false
+  if (typeof p.x === 'number' && typeof p.y === 'number') {
+    x = p.x; y = p.y
+    autonomyMap = p.frame === 'autonomy_map'
+  } else if (typeof p.x_mm === 'number' && typeof p.y_mm === 'number') {
+    x = p.x_mm / 1000; y = p.y_mm / 1000
+  } else return null
+  if (autonomyMap) { x += SIM_ROOM_ORIGIN.x; y += SIM_ROOM_ORIGIN.y }
+  return {
+    x, y,
+    heading: typeof p.heading_rad === 'number' ? p.heading_rad : 0,
+    atMicros: toMicros(o.observedAt),
+    missionId: typeof d?.mission_id === 'string' ? d.mission_id : null,
+  }
+}
+
 export function mapRover(rows: LiveRows, ctx: MapContext, missions: Mission[]): Rover {
   const roverDev = rows.devices.find(d => d.type.tag === 'Rover')
   const zoneId = roverDev?.zoneId ?? rows.zones[0]?.id
   const zonePos = new Map(mapZones(rows.zones).map(z => [z.id, z.position]))
-  const active = missions.find(m => m.status === 'en_route')
+  const fallback = zonePos.get(zoneId ?? '') ?? { x: 12, y: 9 }
+  const lidar = Array.from({ length: 72 }, () => 2.5)
+
+  const fixes: RoverPoseFix[] = []
+  for (const o of rows.observations) {
+    if (roverDev && o.deviceId !== roverDev.id) continue
+    const fix = extractRoverPose(o)
+    if (fix && fix.atMicros > 0) fixes.push(fix)
+  }
+  fixes.sort((a, b) => a.atMicros - b.atMicros)
+  const latest = fixes.at(-1)
+  if (!latest) {
+    // No telemetry yet — park at the zone anchor, flagged stale. Position
+    // is a layout anchor, explicitly NOT a measured pose.
+    return { position: fallback, heading: 0, speed: 0, battery: 100,
+      stopped: false, missionId: null, distance: 0, lidar, stale: true }
+  }
+  const at = backendToElapsed(latest.atMicros, ctx.elapsed, ctx.backendNowMicros)
+  const stale = ctx.elapsed - at > ROVER_POSE_STALE_S
+  // Speed from the two most recent distinct fixes (real dt from obs times).
+  let speed = 0
+  const prev = fixes.at(-2)
+  if (prev && !stale) {
+    const dtS = (latest.atMicros - prev.atMicros) / 1_000_000
+    if (dtS > 0.05) speed = Math.min(3, Math.hypot(latest.x - prev.x, latest.y - prev.y) / dtS)
+  }
+  const linked = latest.missionId
+    ? missions.find(m => m.id === latest.missionId)
+    : undefined
+  const missionId = linked?.id ?? missions.find(m => m.status === 'en_route')?.id ?? null
   return {
-    position: zonePos.get(zoneId ?? '') ?? { x: 12, y: 9 },
-    heading: 0, speed: active ? 1 : 0, battery: 100, stopped: false,
-    missionId: active?.id ?? null, distance: 0,
-    lidar: Array.from({ length: 72 }, () => 2.5),
+    position: { x: latest.x, y: latest.y },
+    heading: latest.heading,
+    speed: stale ? 0 : speed,
+    battery: 100, stopped: false,
+    missionId, distance: 0, lidar,
+    stale,
   }
 }
 

@@ -130,7 +130,7 @@ function Rover({ state, selected, reduced }: { state: CommandState; selected: bo
     <mesh position={[0.72, 0.08, 0]} rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[0.22, 0.42, 3]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
     <group ref={scanner}><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><circleGeometry args={[2.8, 32, 0, Math.PI / 6]} /><meshBasicMaterial color={color} transparent opacity={0.075} depthWrite={false} side={DoubleSide} /></mesh></group>
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}><ringGeometry args={[selected ? 1.05 : 0.85, selected ? 1.1 : 0.87, 48]} /><meshBasicMaterial color={color} transparent opacity={0.8} toneMapped={false} /></mesh>
-    <Html position={[0, 1.7, 0]} center zIndexRange={[16, 0]}><button className={`twin-rover-label ${state.rover.stopped ? 'is-stopped' : ''}`} onClick={() => useCommandStore.getState().select('rover-01')}><span />PHANTOM 01</button></Html>
+    <Html position={[0, 1.7, 0]} center zIndexRange={[16, 0]}><button className={`twin-rover-label ${state.rover.stopped ? 'is-stopped' : ''} ${state.rover.stale ? 'is-stale' : ''}`} onClick={() => useCommandStore.getState().select('rover-01')}><span />PHANTOM 01{state.rover.stale ? ' ·STALE' : ''}</button></Html>
   </group></Pickable>
 }
 
@@ -221,6 +221,7 @@ function Facility({ labels, heatmap, routes, reset, compact, reduced }: { labels
 
 export default function TwinScene({ compact = false }: { compact?: boolean }) {
   const mode = useCommandStore(s => s.camera)
+  const appMode = useCommandStore(s => s.mode)
   const setCamera = useCommandStore(s => s.setCamera)
   const state = useCommandStore(s => s.state)
   const select = useCommandStore(s => s.select)
@@ -238,6 +239,6 @@ export default function TwinScene({ compact = false }: { compact?: boolean }) {
     </Canvas></Suspense></SceneBoundary>
     <div className="twin-camera-controls" aria-label="Digital twin camera">{cameraModes.map(({ id, label, icon: Icon }) => <button key={id} title={label} aria-label={`${label} camera`} aria-pressed={mode === id} className={mode === id ? 'is-active' : ''} onClick={() => setCamera(id)}><Icon size={14} />{!compact && <span>{label}</span>}</button>)}<span className="twin-controls-divider" /><button aria-label="Reset camera" title="Reset camera" onClick={() => { select(null); setCamera('isometric'); setReset(value => value + 1) }}><Crosshair size={14} /></button></div>
     {!compact && <div className="twin-layer-controls" aria-label="Digital twin layers"><button aria-pressed={labels} onClick={() => setLabels(value => !value)}><Box size={13} />Labels</button><button aria-pressed={heatmap} onClick={() => setHeatmap(value => !value)}><Signal size={13} />RF field</button><button aria-pressed={routes} onClick={() => setRoutes(value => !value)}><ScanLine size={13} />Route</button></div>}
-    <div className="twin-scene-footer"><span>FACILITY A <i>/</i> LEVEL 01</span><span>{state.rover.position.x.toFixed(1)}, {state.rover.position.y.toFixed(1)} <i>M</i></span><span>DEMO TELEMETRY</span></div>
+    <div className="twin-scene-footer"><span>FACILITY A <i>/</i> LEVEL 01</span><span>{state.rover.position.x.toFixed(1)}, {state.rover.position.y.toFixed(1)} <i>M</i></span><span>{state.rover.stale ? 'TELEMETRY STALE' : appMode === 'live' ? 'LIVE TELEMETRY' : 'DEMO TELEMETRY'}</span></div>
   </div>
 }
