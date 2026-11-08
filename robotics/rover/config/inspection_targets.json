@@ -1,0 +1,47 @@
+{
+  "device_id": "rover-01",
+  "comment": "Registered Raspberry Pi inspection targets for inspect_zone checkpoint network inspections. Each target binds a surveyed waypoint (zone_id+waypoint_id, same whitelist as config/routes.json) to one Pi. `address` is the allowlisted network address live health checks may probe; `checks` are restricted to ping|tcp_connect|http_health with bounded ports/paths. Simulated runs never touch the network — outcomes are honestly labeled synthetic/DEMO.",
+  "targets": [
+    {
+      "device_id": "pi-rack-01",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "address": "10.10.0.21",
+      "ssid": "HIVE-RACK-01",
+      "bssid": "02:4c:96:0a:11:01",
+      "label": "Rack row Pi — node controller",
+      "checks": [
+        {"type": "ping"},
+        {"type": "tcp_connect", "port": 22},
+        {"type": "http_health", "port": 8080, "path": "/healthz"}
+      ]
+    },
+    {
+      "device_id": "pi-rack-02",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-b",
+      "address": "10.10.0.22",
+      "ssid": "HIVE-RACK-02",
+      "bssid": "02:4c:96:0a:11:02",
+      "label": "Rack row Pi — sensor aggregator",
+      "checks": [
+        {"type": "ping"},
+        {"type": "tcp_connect", "port": 22}
+      ]
+    },
+    {
+      "device_id": "pi-cabinet-01",
+      "zone_id": "cabinet-01",
+      "waypoint_id": "wp-cabinet",
+      "address": "10.10.0.31",
+      "ssid": "HIVE-CABINET-01",
+      "bssid": "02:4c:96:0a:11:03",
+      "label": "Equipment cabinet Pi — contact sensor hub",
+      "checks": [
+        {"type": "ping"},
+        {"type": "tcp_connect", "port": 22},
+        {"type": "http_health", "port": 8080, "path": "/healthz"}
+      ]
+    }
+  ]
+}

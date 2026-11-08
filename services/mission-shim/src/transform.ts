@@ -138,6 +138,12 @@ export function transformCommand(
       return { ok: false, reason: `internal: unmapped rover type ${roverType}` };
   }
 
+  // Optional incident linkage — the module commandJson does not emit it
+  // today, but when a producer includes it the rover propagates it into
+  // inspection/evidence artifacts unchanged (still HMAC-covered).
+  const incidentId = str(cmd.incident_id);
+  if (incidentId) mission.incident_id = incidentId;
+
   // ASCII guard — keeps canonical bytes identical to Python's
   // ensure_ascii=True output so the rover's HMAC verifies.
   for (const v of Object.values(mission)) {

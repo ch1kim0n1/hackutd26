@@ -152,7 +152,9 @@ def test_investigation_runs_scripted_agent(client, auth):
     assert a["provenance"] == "LIVE"
     runs = client.get("/investigations",
                       headers=auth["commander"]).json()["items"]
-    assert len(runs) == 1
+    # incident creation auto-triggers one orchestrator run (incident_created)
+    # plus this explicit run
+    assert len(runs) == 2
 
 
 # ---------------- proposals / approvals ----------------

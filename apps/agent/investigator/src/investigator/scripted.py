@@ -32,8 +32,15 @@ class ScriptedModel:
     """Returns queued FakeResponses; records every message list seen."""
 
     def __init__(self, responses: list[FakeResponse]):
+        self._script = list(responses)
         self.responses = list(responses)
         self.seen_messages: list[list[dict]] = []
+
+    def fork(self) -> "ScriptedModel":
+        """Fresh copy replaying the same script — used so each
+        per-incident investigation gets the full deterministic sequence
+        even though the shared model instance is consumed by other runs."""
+        return ScriptedModel(list(self._script))
 
     def chat(self, messages, tools=None, tool_choice="auto") -> FakeResponse:
         self.seen_messages.append([dict(m) for m in messages])

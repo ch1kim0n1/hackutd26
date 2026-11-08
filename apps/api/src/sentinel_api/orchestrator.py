@@ -15,12 +15,12 @@ tool allowlist; containment stays proposal-only pending #113.
 from __future__ import annotations
 
 import os
+import time
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Deque, Protocol
 
 from investigator.agent import InvestigationAgent
-from investigator.backends import FakeBackends
 from investigator.tools import ToolContext, registry_from_backends
 
 from agent_safety import HardenedAgent, ModelOutputGuard, ToolGuard
@@ -31,7 +31,7 @@ from agent_safety import HardenedAgent, ModelOutputGuard, ToolGuard
 TRIGGER_KINDS = {
     "wifi_ap_seen", "wifi_probe", "ble_beacon", "ble_beacon_seen",
     "contact_open", "cabinet_contact_open", "motion", "rf_frame_meta",
-    "tag_seen", "device_offline", "posture_finding",
+    "tag_seen", "device_offline", "posture_finding", "incident_created",
 }
 
 # Kinds that are noise for autonomous triggering (health heartbeats,
@@ -123,6 +123,10 @@ class Orchestrator:
         if not event.event_id:
             self.stats["failed"] += 1
             return "invalid"
+        # Persist every uniquely-identified event as a real observation —
+        # including ignored kinds (mission_status, device_health) that
+        # investigation tools read but that must not trigger runs.
+        self._persist_observation(event)
         if event.kind in IGNORED_KINDS:
             self.stats["ignored"] += 1
             return "ignored"
@@ -138,6 +142,21 @@ class Orchestrator:
         self._pending.append(event)
         self.stats["triggered"] += 1
         return "accepted"
+
+    def _persist_observation(self, event: InvestigationEvent) -> None:
+        """Store the event as a real observation record so investigation
+        tools read live backend data instead of canned fixtures."""
+        if any(o.get("event_id") == event.event_id
+               for o in self.state.observations):
+            return
+        self.state.observations.append({
+            "event_id": event.event_id, "kind": event.kind,
+            "source": event.source, "device_id": event.device_id,
+            "zone_id": event.zone_id, "incident_id": event.incident_id,
+            "summary": event.summary, "data": event.data,
+            "observed_at": event.observed_at,
+            "provenance": event.provenance, "at": time.time(),
+        })
 
     @staticmethod
     def _resolve_key(event: InvestigationEvent) -> tuple[str, str]:
@@ -174,20 +193,47 @@ class Orchestrator:
 
     def _agent_for(self, incident_id: str) -> HardenedAgent:
         if incident_id not in self._agents:
-            backends = FakeBackends()
+            from investigator.service_backends import ServiceBackends
+            try:
+                inc = self.state.incidents.get(incident_id)
+                zone_ids = {inc.zone_id} if inc.zone_id else set()
+            except Exception:
+                zone_ids = set()
+            device_ids = {o.get("device_id") for o in self.state.observations
+                          if o.get("device_id")}
             ctx = ToolContext(
                 incident_id=incident_id,
-                allowed_zones={"rack-01", "lab-b", "lobby"},
-                allowed_devices={"device-lab-01", "lab-ap-01"})
+                allowed_zones=zone_ids,
+                allowed_devices=device_ids)
+            backends = ServiceBackends(self.state, incident_id)
             registry = registry_from_backends(ctx, backends.as_backends())
-            inner = InvestigationAgent(self.state.investigator_model, registry,
+            inner = InvestigationAgent(self.state.agent_model(), registry,
                                        max_tool_calls=self.max_tool_calls)
             allowed = {s["name"] for s in registry.specs()}
+            known_evidence = self._known_evidence_ids(incident_id)
             self._agents[incident_id] = HardenedAgent(
                 inner,
                 ToolGuard(allowed, max_calls=self.max_tool_calls),
-                ModelOutputGuard(known_evidence_ids=set(backends.evidence)))
+                ModelOutputGuard(known_evidence_ids=known_evidence))
         return self._agents[incident_id]
+
+    def _known_evidence_ids(self, incident_id: str) -> set[str]:
+        """Citable ids = persisted observation event_ids + incident
+        evidence refs + prior assessment ids — the real evidence universe."""
+        ids = {o.get("event_id") for o in self.state.observations
+               if o.get("event_id")}
+        try:
+            inc = self.state.incidents.get(incident_id)
+            for ref in getattr(inc, "evidence", []) or []:
+                rid = getattr(ref, "evidence_id", None) or (
+                    ref.get("evidence_id") if isinstance(ref, dict) else None)
+                if rid:
+                    ids.add(rid)
+        except Exception:
+            pass
+        ids.update(a.get("id", "") for a in self.state.agent_assessments)
+        ids.discard("")
+        return ids
 
     def _run(self, event: InvestigationEvent) -> dict:
         incident_id = event.incident_id or self._ensure_incident(event)

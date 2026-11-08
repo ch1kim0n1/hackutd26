@@ -105,6 +105,7 @@ class MissionRecord:
     waypoint_id: Optional[str] = None
     route_id: Optional[str] = None
     camera_id: Optional[str] = None
+    incident_id: Optional[str] = None
     reason: str = ""
     pose_confidence: float = 0.0
     created_at: str = ""
