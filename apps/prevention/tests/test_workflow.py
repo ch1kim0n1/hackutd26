@@ -2,8 +2,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "posture" / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "risk_priority" / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "posture" / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "risk_priority" / "src"))
 
 from prevention import (  # noqa: E402
     CandidateStatus, PreventionPolicy, build_candidates,

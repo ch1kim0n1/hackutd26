@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "posture" / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "posture" / "src"))
 
 from risk_priority import prioritize, score_finding
 from posture import PostureEngine, seed_weak_fixture

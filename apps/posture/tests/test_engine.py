@@ -95,7 +95,7 @@ def test_expected_ports_not_flagged():
 def test_runner_assesses_live_views():
     """Runner polls HttpNodeView against a live vpi_service."""
     import sys, threading
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]
                            / "datacenter" / "services"))
     import vpi_service
     srv = vpi_service.make_server("vpi-compute-01", "127.0.0.1", 0)

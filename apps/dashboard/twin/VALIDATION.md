@@ -49,3 +49,17 @@ All observations, camera/LiDAR displays, agent assessments, rover movement and c
 Vite reports large lazy chunks for Three, AG Grid and CopilotKit. CopilotKit's optional Markdown renderer includes many syntax/diagram modules; bundle reduction remains future work. Its in-memory `agents__unsafe_dev_only` transport must be replaced by an authenticated runtime for a live deployment. GSAP is distributed under its standard no-charge license, retained in the generated notice bundle.
 
 State and layout edits are local to the session/view and are not a durable incident database. No external deployment was performed by this implementation task.
+
+## M5 final validation — 2026-11-11 (#118)
+
+**Dependency audit (re-run):** `npm audit` = 34 entries (8 low, 13 moderate, 13 high); `--omit=dev` = 19 (6 low, 13 high). Counts unchanged from #128 triage — no new advisories, no compatible upstream fixes released. Accepted-risk rationale above stands; nothing shipped to untrusted input paths.
+
+**Test sweep (this pass):** twin `npm run check` green — eslint 0 errors (post-#136), vitest 60/60, vite build OK. Python: regression 4, scenarios 3, policy_actions 8, quarantine 7, deception 7, traffic_path 6, honeypot_service 7, datacenter 25, posture 9, prevention 7, hardening 9, risk_priority 9. Fixed during sweep: three test files used `parents[3]` (repo root) for sibling `sys.path` inserts — corrected to `parents[2]` (`apps/`); suites now self-contained without external PYTHONPATH.
+
+**Naming decision:** SENTINEL HIVE is the platform/backend (SpacetimeDB module, gateway, collectors). Phantom Command is the command-center UI (`apps/dashboard/twin`). Phantom Patrol is the robot/rover program (`robotics/`, `autonomy/`). Docs use SENTINEL HIVE for architecture, Phantom Command for UI surfaces, Phantom Patrol for the vehicle. No rename needed; mapping documented here.
+
+**Reset/failure modes:** `apps/datacenter/scripts/reset.py` tears down compose; vpi `/admin/release` clears quarantine; executor `revert()` restores isolation; hardening proposals expire and fingerprint-replay is denied; gateway rejects replayed seq and bad HMAC. Verified in pytest suites above.
+
+**Performance notes:** twin prod bundle main chunk ~1.86 MB (576 KB gzip) — Three/AG Grid/CopilotKit lazy chunks; DPR capped 1.5; 407-cell occupancy merged to 11 wall prisms. Scenario runner completes all three flows in ~1 s on laptop.
+
+**Residual risk (honest):** CopilotKit/AG-UI transitive advisories remain upstream-blocked (see #128 table). Physical hardware paths (serial, monitor-mode, real switch) are code-complete but lab-untested — see #54/#55.
