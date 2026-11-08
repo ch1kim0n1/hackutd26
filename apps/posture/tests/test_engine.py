@@ -90,3 +90,37 @@ def test_expected_ports_not_flagged():
     findings = PostureEngine(FixtureProvider([node])).assess()
     assert findings == [] or all(
         f["check_id"] == "insufficient_evidence" for f in findings)
+
+
+def test_runner_assesses_live_views():
+    """Runner polls HttpNodeView against a live vpi_service."""
+    import sys, threading
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]
+                           / "datacenter" / "services"))
+    import vpi_service
+    srv = vpi_service.make_server("vpi-compute-01", "127.0.0.1", 0)
+    port = srv.server_address[1]
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    try:
+        from posture.runner import AssessmentRunner, HttpNodeView, HttpProvider
+        view = HttpNodeView(base_url=f"http://127.0.0.1:{port}",
+                            node_id="vpi-compute-01", zone_id="rack-01")
+        runner = AssessmentRunner(HttpProvider([view]))
+        findings = runner.assess_once()
+        assert isinstance(findings, list)
+        # compute node config has ssh_password_auth=False matching
+        # baseline -> at most missing_patch (patch_level unknown -> unknown conf)
+        assert all(f["node_ref"] == "vpi-compute-01" for f in findings)
+    finally:
+        srv.shutdown()
+
+
+def test_runner_unreachable_node_survives():
+    from posture.runner import AssessmentRunner, HttpNodeView, HttpProvider
+    view = HttpNodeView(base_url="http://127.0.0.1:1",  # dead port
+                        node_id="vpi-dead", zone_id="rack-01",
+                        timeout_s=0.2)
+    runner = AssessmentRunner(HttpProvider([view]))
+    findings = runner.assess_once()  # must not raise
+    assert isinstance(findings, list)
