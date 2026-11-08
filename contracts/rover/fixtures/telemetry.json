@@ -1,0 +1,192 @@
+[
+  {
+    "name": "rover-navigating",
+    "provenance": "DEMO",
+    "rover_event": {
+      "event": "navigating",
+      "schema_version": 1,
+      "device_id": "rover-01",
+      "mission_id": "mis-patrol-1",
+      "command_id": "mis-patrol-1",
+      "type": "patrol_route",
+      "state": "navigating",
+      "zone_id": "rack-01",
+      "pose_confidence": 0.82,
+      "reason": "to:wp-rack-a",
+      "observed_at": "2026-11-08T01:00:00Z",
+      "pose": {"x_mm": 1250.4, "y_mm": 800.2, "heading_rad": 0.12, "confidence": 0.82, "source": "esp32_odometry+apriltag"},
+      "waypoint_id": "wp-rack-a"
+    },
+    "common": {
+      "contract": "sentinel.rover.telemetry",
+      "schema_version": 1,
+      "event": "navigating",
+      "device_id": "rover-01",
+      "mission_id": "mis-patrol-1",
+      "command_id": "mis-patrol-1",
+      "type": "patrol",
+      "state": "navigating",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "reason": "to:wp-rack-a",
+      "observed_at": "2026-11-08T01:00:00Z",
+      "provenance": "DEMO",
+      "pose": {"x": 1250.4, "y": 800.2, "heading_rad": 0.12, "unit": "mm", "frame": "surveyed_floorplan", "confidence": 0.82, "source": "esp32_odometry+apriltag"}
+    }
+  },
+  {
+    "name": "rover-evidence-captured",
+    "provenance": "DEMO",
+    "rover_event": {
+      "event": "evidence_captured",
+      "schema_version": 1,
+      "device_id": "rover-01",
+      "mission_id": "mis-photo-1",
+      "command_id": "mis-photo-1",
+      "type": "capture_photo",
+      "state": "navigating",
+      "zone_id": "cabinet-01",
+      "pose_confidence": 0.9,
+      "reason": "",
+      "observed_at": "2026-11-08T01:05:00Z",
+      "pose": {"x_mm": 5200.0, "y_mm": 3000.0, "heading_rad": 1.57, "confidence": 0.9, "source": "esp32_odometry+apriltag"},
+      "waypoint_id": "wp-cabinet",
+      "sha256": "abababababababababababababababababababababababababababababababab",
+      "synthetic": true
+    },
+    "common": {
+      "contract": "sentinel.rover.telemetry",
+      "schema_version": 1,
+      "event": "evidence_captured",
+      "device_id": "rover-01",
+      "mission_id": "mis-photo-1",
+      "command_id": "mis-photo-1",
+      "type": "capture_photo",
+      "state": "navigating",
+      "zone_id": "cabinet-01",
+      "waypoint_id": "wp-cabinet",
+      "observed_at": "2026-11-08T01:05:00Z",
+      "provenance": "DEMO",
+      "pose": {"x": 5200.0, "y": 3000.0, "heading_rad": 1.57, "unit": "mm", "frame": "surveyed_floorplan", "confidence": 0.9, "source": "esp32_odometry+apriltag"},
+      "data": {"sha256": "abababababababababababababababababababababababababababababababab", "synthetic": true}
+    }
+  },
+  {
+    "name": "rover-mission-completed",
+    "provenance": "LIVE",
+    "rover_event": {
+      "event": "mission_completed",
+      "schema_version": 1,
+      "device_id": "rover-01",
+      "mission_id": "mis-patrol-1",
+      "command_id": "mis-patrol-1",
+      "type": "patrol_route",
+      "state": "completed",
+      "zone_id": "rack-01",
+      "pose_confidence": 0.85,
+      "reason": "route_complete",
+      "observed_at": "2026-11-08T01:20:00Z",
+      "pose": {"x_mm": 500.0, "y_mm": 500.0, "heading_rad": 0.0, "confidence": 0.85, "source": "esp32_odometry+apriltag"}
+    },
+    "common": {
+      "contract": "sentinel.rover.telemetry",
+      "schema_version": 1,
+      "event": "mission_completed",
+      "device_id": "rover-01",
+      "mission_id": "mis-patrol-1",
+      "command_id": "mis-patrol-1",
+      "type": "patrol",
+      "state": "completed",
+      "zone_id": "rack-01",
+      "reason": "route_complete",
+      "observed_at": "2026-11-08T01:20:00Z",
+      "provenance": "LIVE",
+      "pose": {"x": 500.0, "y": 500.0, "heading_rad": 0.0, "unit": "mm", "frame": "surveyed_floorplan", "confidence": 0.85, "source": "esp32_odometry+apriltag"}
+    }
+  },
+  {
+    "name": "rover-mission-aborted-estop",
+    "provenance": "LIVE",
+    "rover_event": {
+      "event": "mission_aborted",
+      "schema_version": 1,
+      "device_id": "rover-01",
+      "mission_id": "mis-insp-1",
+      "command_id": "mis-insp-1",
+      "type": "inspect_zone",
+      "state": "aborted",
+      "zone_id": "rack-01",
+      "pose_confidence": 0.7,
+      "reason": "estop_asserted",
+      "observed_at": "2026-11-08T01:25:00Z",
+      "pose": {"x_mm": 900.0, "y_mm": 400.0, "heading_rad": 2.1, "confidence": 0.7, "source": "esp32_odometry+apriltag"},
+      "waypoint_id": "wp-rack-a"
+    },
+    "common": {
+      "contract": "sentinel.rover.telemetry",
+      "schema_version": 1,
+      "event": "mission_aborted",
+      "device_id": "rover-01",
+      "mission_id": "mis-insp-1",
+      "command_id": "mis-insp-1",
+      "type": "inspect_zone",
+      "state": "aborted",
+      "zone_id": "rack-01",
+      "waypoint_id": "wp-rack-a",
+      "reason": "estop_asserted",
+      "observed_at": "2026-11-08T01:25:00Z",
+      "provenance": "LIVE",
+      "pose": {"x": 900.0, "y": 400.0, "heading_rad": 2.1, "unit": "mm", "frame": "surveyed_floorplan", "confidence": 0.7, "source": "esp32_odometry+apriltag"}
+    }
+  },
+  {
+    "name": "rover-mission-timed-out",
+    "provenance": "DEMO",
+    "rover_event": {
+      "event": "mission_timed_out",
+      "schema_version": 1,
+      "device_id": "rover-01",
+      "mission_id": "mis-insp-1",
+      "command_id": "mis-insp-1",
+      "type": "inspect_zone",
+      "state": "timed_out",
+      "zone_id": "rack-01",
+      "pose_confidence": 0.6,
+      "reason": "waypoint_timeout",
+      "observed_at": "2026-11-08T01:30:00Z",
+      "pose": {"x_mm": 700.0, "y_mm": 300.0, "heading_rad": 0.5, "confidence": 0.6, "source": "esp32_odometry+apriltag"}
+    },
+    "common": {
+      "contract": "sentinel.rover.telemetry",
+      "schema_version": 1,
+      "event": "mission_timed_out",
+      "device_id": "rover-01",
+      "mission_id": "mis-insp-1",
+      "command_id": "mis-insp-1",
+      "type": "inspect_zone",
+      "state": "timed_out",
+      "zone_id": "rack-01",
+      "reason": "waypoint_timeout",
+      "observed_at": "2026-11-08T01:30:00Z",
+      "provenance": "DEMO",
+      "pose": {"x": 700.0, "y": 300.0, "heading_rad": 0.5, "unit": "mm", "frame": "surveyed_floorplan", "confidence": 0.6, "source": "esp32_odometry+apriltag"}
+    }
+  },
+  {
+    "name": "autonomy-pose-patrol",
+    "provenance": "DEMO",
+    "device_id": "rover-01",
+    "observed_at": "2026-11-08T01:00:00Z",
+    "autonomy_report": {"pose": [1.25, -0.4, 0.7], "mode": "PATROL"},
+    "common": {
+      "contract": "sentinel.rover.telemetry",
+      "schema_version": 1,
+      "event": "pose_report",
+      "device_id": "rover-01",
+      "observed_at": "2026-11-08T01:00:00Z",
+      "provenance": "DEMO",
+      "pose": {"x": 1.25, "y": -0.4, "heading_rad": 0.7, "unit": "m", "frame": "autonomy_map", "source": "odometry+scan_match"},
+      "data": {"mode": "PATROL"}
+    }
+  }
+]

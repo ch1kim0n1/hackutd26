@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "start": "tsx src/index.ts",
-    "test": "tsx test/transform.test.ts"
+    "test": "tsx test/transform.test.ts && tsx test/common.test.ts"
   },
   "dependencies": {
     "mqtt": "^5.10.4"
