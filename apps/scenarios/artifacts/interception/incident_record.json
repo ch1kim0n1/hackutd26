@@ -9,25 +9,25 @@
   "agent_summary": "A flow from attacker-01 matched the deception policy and was redirected to decoy-01; the decoy captured the probe. A second known-bad source was blocked outright; legitimate ops traffic passed.",
   "uncertainty": "medium \u2014 decoy capture proves intent to probe, not payload contents",
   "evidence_ids": [
-    "ev-79346c4fb8",
-    "ev-ba91572658",
-    "ev-77d0ab859c"
+    "ev-c88d1bdb16",
+    "ev-4388f2c642",
+    "ev-1f34046d44"
   ],
   "timeline": [
     {
       "step": 1,
-      "evidence_id": "ev-79346c4fb8",
-      "detail": "{\"action\": \"redirect\", \"at\": 1794130828.464556, \"decision_id\": \"fdec-7b17f56714fc\", \"decoy\": {\"decoy_trace\": \"decoy-reg-1\", \"payload_sha256\": \"fb3228c2a07a3de5\", \"synthetic\": true}, \"detail\": \"\", \"dst"
+      "evidence_id": "ev-c88d1bdb16",
+      "detail": "{\"action\": \"redirect\", \"at\": 1794130976.553335, \"decision_id\": \"fdec-3506d7f32466\", \"decoy\": {\"decoy_trace\": \"decoy-reg-1\", \"payload_sha256\": \"fb3228c2a07a3de5\", \"synthetic\": true}, \"detail\": \"\", \"dst"
     },
     {
       "step": 2,
-      "evidence_id": "ev-ba91572658",
-      "detail": "{\"action\": \"block\", \"at\": 1794130828.464598, \"decision_id\": \"fdec-4c2d1139974e\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-2\", \"out"
+      "evidence_id": "ev-4388f2c642",
+      "detail": "{\"action\": \"block\", \"at\": 1794130976.553371, \"decision_id\": \"fdec-8665520645d2\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-2\", \"out"
     },
     {
       "step": 3,
-      "evidence_id": "ev-77d0ab859c",
-      "detail": "{\"action\": \"allow\", \"at\": 1794130828.464907, \"decision_id\": \"fdec-7dc6f5dc0e74\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-3\", \"out"
+      "evidence_id": "ev-1f34046d44",
+      "detail": "{\"action\": \"allow\", \"at\": 1794130976.553685, \"decision_id\": \"fdec-ffd94bce6a19\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-3\", \"out"
     }
   ],
   "result": {
@@ -35,8 +35,8 @@
     "evidence": [
       {
         "schema": "deception-evidence/1",
-        "trace_id": "rt-9c134623ded1",
-        "decision_id": "fdec-7b17f56714fc",
+        "trace_id": "rt-e86dafc4808f",
+        "decision_id": "fdec-3506d7f32466",
         "flow_id": "reg-int-1",
         "rule_id": "decoy-attacker-01",
         "action": "redirect",
@@ -55,7 +55,7 @@
         },
         "provenance": "DEMO",
         "enforcement": "simulated",
-        "at": 1794130828.464556,
+        "at": 1794130976.553335,
         "detail": "",
         "decoy": {
           "decoy_trace": "decoy-reg-1",
@@ -65,8 +65,8 @@
       },
       {
         "schema": "deception-evidence/1",
-        "trace_id": "rt-42e0dc7dc919",
-        "decision_id": "fdec-4c2d1139974e",
+        "trace_id": "rt-759f348dc22e",
+        "decision_id": "fdec-8665520645d2",
         "flow_id": "reg-int-2",
         "rule_id": "block-bad-actor",
         "action": "block",
@@ -82,13 +82,13 @@
         "redirect_to": null,
         "provenance": "DEMO",
         "enforcement": "simulated",
-        "at": 1794130828.464598,
+        "at": 1794130976.553371,
         "detail": ""
       },
       {
         "schema": "deception-evidence/1",
-        "trace_id": "rt-253397770f2b",
-        "decision_id": "fdec-7dc6f5dc0e74",
+        "trace_id": "rt-286ec990854f",
+        "decision_id": "fdec-ffd94bce6a19",
         "flow_id": "reg-int-3",
         "rule_id": null,
         "action": "allow",
@@ -104,7 +104,7 @@
         "redirect_to": null,
         "provenance": "DEMO",
         "enforcement": "simulated",
-        "at": 1794130828.464907,
+        "at": 1794130976.553685,
         "detail": ""
       }
     ]

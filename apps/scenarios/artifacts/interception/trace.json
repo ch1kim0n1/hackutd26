@@ -5,35 +5,35 @@
   "label": "MOCK",
   "provenance": "DEMO",
   "ok": true,
-  "duration_s": 1.014,
+  "duration_s": 0.513,
   "agent_summary": "A flow from attacker-01 matched the deception policy and was redirected to decoy-01; the decoy captured the probe. A second known-bad source was blocked outright; legitimate ops traffic passed.",
   "uncertainty": "medium \u2014 decoy capture proves intent to probe, not payload contents",
   "steps": [
     {
       "step": 1,
-      "evidence_id": "ev-79346c4fb8",
-      "detail": "{\"action\": \"redirect\", \"at\": 1794130828.464556, \"decision_id\": \"fdec-7b17f56714fc\", \"decoy\": {\"decoy_trace\": \"decoy-reg-1\", \"payload_sha256\": \"fb3228c2a07a3de5\", \"synthetic\": true}, \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-1\", \"outcome\": \"decoy_hit\", \"provenance\": \"DEMO\", \"redirect_to\": {\"node_id\": \"decoy-01\", \"service\": \"http\"}, \"rule_id\": \"decoy-attacker-01\", \"schema\": \"deception-evidence/1\", \"src\": {\"node_id\": \"attacker-01\", \"service\": \"http\"}, \"trace_id\": \"rt-9c134623ded1\"}"
+      "evidence_id": "ev-c88d1bdb16",
+      "detail": "{\"action\": \"redirect\", \"at\": 1794130976.553335, \"decision_id\": \"fdec-3506d7f32466\", \"decoy\": {\"decoy_trace\": \"decoy-reg-1\", \"payload_sha256\": \"fb3228c2a07a3de5\", \"synthetic\": true}, \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-1\", \"outcome\": \"decoy_hit\", \"provenance\": \"DEMO\", \"redirect_to\": {\"node_id\": \"decoy-01\", \"service\": \"http\"}, \"rule_id\": \"decoy-attacker-01\", \"schema\": \"deception-evidence/1\", \"src\": {\"node_id\": \"attacker-01\", \"service\": \"http\"}, \"trace_id\": \"rt-e86dafc4808f\"}"
     },
     {
       "step": 2,
-      "evidence_id": "ev-ba91572658",
-      "detail": "{\"action\": \"block\", \"at\": 1794130828.464598, \"decision_id\": \"fdec-4c2d1139974e\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-2\", \"outcome\": \"blocked\", \"provenance\": \"DEMO\", \"redirect_to\": null, \"rule_id\": \"block-bad-actor\", \"schema\": \"deception-evidence/1\", \"src\": {\"node_id\": \"bad-actor\", \"service\": \"http\"}, \"trace_id\": \"rt-42e0dc7dc919\"}"
+      "evidence_id": "ev-4388f2c642",
+      "detail": "{\"action\": \"block\", \"at\": 1794130976.553371, \"decision_id\": \"fdec-8665520645d2\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-2\", \"outcome\": \"blocked\", \"provenance\": \"DEMO\", \"redirect_to\": null, \"rule_id\": \"block-bad-actor\", \"schema\": \"deception-evidence/1\", \"src\": {\"node_id\": \"bad-actor\", \"service\": \"http\"}, \"trace_id\": \"rt-759f348dc22e\"}"
     },
     {
       "step": 3,
-      "evidence_id": "ev-77d0ab859c",
-      "detail": "{\"action\": \"allow\", \"at\": 1794130828.464907, \"decision_id\": \"fdec-7dc6f5dc0e74\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-3\", \"outcome\": \"routed\", \"provenance\": \"DEMO\", \"redirect_to\": null, \"rule_id\": null, \"schema\": \"deception-evidence/1\", \"src\": {\"node_id\": \"ops-01\", \"service\": \"http\"}, \"trace_id\": \"rt-253397770f2b\"}"
+      "evidence_id": "ev-1f34046d44",
+      "detail": "{\"action\": \"allow\", \"at\": 1794130976.553685, \"decision_id\": \"fdec-ffd94bce6a19\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-3\", \"outcome\": \"routed\", \"provenance\": \"DEMO\", \"redirect_to\": null, \"rule_id\": null, \"schema\": \"deception-evidence/1\", \"src\": {\"node_id\": \"ops-01\", \"service\": \"http\"}, \"trace_id\": \"rt-286ec990854f\"}"
     }
   ],
   "claims": [
     {
       "text": "A flow from attacker-01 matched the deception policy and was redirected to decoy-01; the decoy captured the probe. A second known-bad source was blocked outright; legitimate ops traffic passed.",
       "evidence_ids": [
-        "ev-79346c4fb8",
-        "ev-ba91572658",
-        "ev-77d0ab859c"
+        "ev-c88d1bdb16",
+        "ev-4388f2c642",
+        "ev-1f34046d44"
       ]
     }
   ],
-  "generated_at": 1794130829.467113
+  "generated_at": 1794130977.055182
 }
