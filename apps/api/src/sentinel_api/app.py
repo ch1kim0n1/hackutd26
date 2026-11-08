@@ -147,7 +147,10 @@ def create_app(seed: bool = True) -> FastAPI:
     @app.get("/healthz")
     def healthz():
         return {"status": "ok", "service": "sentinel-api",
-                "state_backend": BACKEND}
+                "state_backend": BACKEND,
+                # non-secret provider mode (issue #111): live|fake + reason
+                "agent_provider": _asdict(
+                    state.investigator_stack.provider)}
 
     @app.get("/readyz")
     def readyz():
