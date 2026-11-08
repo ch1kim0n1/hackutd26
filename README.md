@@ -1,14 +1,60 @@
-# SENTINEL HIVE — HackUTD 2026
+# BlindSpot — HackUTD 2026
+
+![BlindSpot concept banner showing an inspection rover in a server-room lab](docs/visuals/blindspot-devpost-banner.png)
+
+*Stylized concept illustration based on photos of the rover prototype.*
 
 **Autonomous cyber-physical defense platform** | NVIDIA Nemotron × Winstead × SpacetimeDB
 
-A mobile security rover and wireless/physical sensor network observe an **owned mock enterprise office**. A Nemotron agent performs real, auditable multi-step investigation; SpacetimeDB synchronizes device and incident state; an **independently secured** Winstead incident command center lets authorized operators document scope, communicate, approve limited lab response, and verify results.
+BlindSpot is designed to bring a mobile security rover, wireless and physical sensors, and an independent incident command center together in an **owned mock enterprise office**. The intended system uses Nemotron for auditable investigations and SpacetimeDB for synchronized operational state, with human approval for limited lab response.
 
 > **Frontend state:** Phantom Command is a complete, tested local simulation. Live hardware, model inference, production authorization and sponsor compliance remain separate verification work.
 
+## How it works
+
+![BlindSpot high-level workflow and technology stack](docs/visuals/05-blindspot-overview.svg)
+
+The overview is a high-level view of the intended system. Phantom Command currently runs as a local simulation, while the live services and physical hardware require separate integration and verification.
+
+### Project flow
+
+![Conceptual project workflow from sensing through verification](docs/visuals/01-project-flow.svg)
+
+The flow above shows the intended end-to-end system. The current Phantom Command frontend is a local simulation; the physical rover and end-to-end live integration still need verification.
+
+### Software flow
+
+![Software flow showing the simulated frontend and separate integration path](docs/visuals/02-software-flow.svg)
+
+Phantom Command runs entirely in memory with synthetic observations and a deterministic agent. The gateway, SpacetimeDB, agent, and lab executor are part of a separate integration path; they are not connected to the frontend demo. See the [frontend walkthrough](apps/dashboard/twin/README.md) and [developer runbook](docs/15-DEVELOPER-RUNBOOK.md).
+
+### Proposed hardware flow
+
+![Proposed hardware flow showing sensors, rover motion control, power and emergency stop](docs/visuals/03-hardware-flow.svg)
+
+The planned rover uses a Raspberry Pi for mission handling and an ESP32 for local motor control, with an independent physical E-stop and watchdog. Sensor pucks provide separate observations. The team’s photos show an assembled rover prototype. This diagram describes the proposed architecture; the photos alone do not establish its wiring, safety behavior, or test status. The [hardware status and bring-up plan](hardware/README.md) describes the proposed design, but its statement that no hardware has been assembled predates the supplied prototype photos.
+
+### Evidence and decisions
+
+![Evidence graph from observation and correlation through human approval and verification](docs/visuals/04-evidence-graph.svg)
+
+Observations, derived correlations, agent hypotheses, human approvals, and verified outcomes are distinct. A wireless anomaly alone is not proof of exfiltration. Demo and replay data must remain clearly labeled.
+
+The [visual kit](docs/visuals/README.md) includes slide-ready PNGs, editable SVGs, and additional AI-generated concept art.
+
 ## Phantom Command
 
-The [command center](apps/dashboard/twin/README.md) implements six connected workspaces: Command Overview, Digital Twin, Network Intelligence, Incident Center, Rover Operations and Nemotron Intelligence. A deterministic agent automatically correlates observations, creates incidents, dispatches policy-controlled rover inspections, collects synthetic evidence and publishes findings. It includes 3D occupancy geometry, 32 shared device records, scenario controls, human approval for disruptive mock actions, independent E-stop and typed future ROS 2/Kismet/Nemotron adapters.
+The [command center](apps/dashboard/twin/README.md) implements six connected workspaces: Command Overview, Digital Twin, Network Intelligence, Incident Center, Rover Operations and Nemotron Intelligence. A deterministic agent automatically correlates observations, creates incidents, dispatches policy-controlled rover inspections, collects synthetic evidence and publishes findings. It includes 3D occupancy geometry, 32 shared device records, scenario controls, human approval for disruptive mock actions, a simulated independent E-stop, and typed future ROS 2/Kismet/Nemotron adapters.
+
+Run the local demo:
+
+```sh
+cd apps/dashboard/twin
+npm ci
+npm run dev
+```
+
+Open the local URL printed by Vite. The demo requires no live hardware, model endpoint, or external services. For supported Node versions and a scenario walkthrough, see the [frontend README](apps/dashboard/twin/README.md).
 
 Start with [AGENT_HANDOFF.md](AGENT_HANDOFF.md) and the [demo walkthrough](apps/dashboard/twin/README.md). The component laboratory remains at `/lab.html`, and the original twin at `/legacy.html`. Every frontend action is explicitly simulated.
 
@@ -44,7 +90,9 @@ Start with [AGENT_HANDOFF.md](AGENT_HANDOFF.md) and the [demo walkthrough](apps/
 - **Winstead:** five hard requirements: isolated security; admin user management; live incident documentation; explicit compromised-data scope; integrated real-time team chat. **Assume attacker access to all internal office systems**—trusted command plane must remain independently secure. See [full checklist](docs/06-WINSTEAD-COMPLIANCE.md).
 - **SpacetimeDB:** central transactional engine and real-time subscriptions driving sensors, missions, incidents, evidence, permissions projections, approvals and response state. Not merely chat/robot movement.
 
-## Core physical demonstration
+## Planned physical demonstration
+
+The following is the target demonstration, not a claim that the end-to-end hardware workflow has been completed.
 
 1. Owned unknown Wi-Fi AP appears near mock cabinet; sensor detects unfamiliar BSSID, cabinet contact opens.
 2. Gateway validates real observations, creates correlated incident through SpacetimeDB.
