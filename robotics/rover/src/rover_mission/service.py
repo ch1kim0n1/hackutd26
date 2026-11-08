@@ -521,6 +521,7 @@ class RoverService:
         summ = report.summary()
         self._emit(record, "inspection_completed",
                    target_device_id=report.target_device_id,
+                   cabinet_id=report.cabinet_id,
                    incident_id=report.incident_id,
                    status=report.status,
                    status_detail=report.status_detail[:120],
