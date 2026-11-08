@@ -29,6 +29,7 @@ export function createInitialState(scenario: ScenarioId = 'resolution'): Command
     activity: [{ id: 'agent-baseline-1', at: -120, kind: 'finding', title: 'Previous investigation resolved', detail: 'Scheduled operations access matched the synthetic maintenance record.', incidentId: 'incident-baseline' }, { id: 'agent-baseline-2', at: 0, kind: 'status', title: 'Nemotron mock agent standing by', detail: 'Event-driven analysis ready. Start simulation to stream deterministic observations.' }],
     missions: [], approvals: [], events: [{ id: 'event-baseline', at: 0, type: 'system.ready', detail: 'DEMO MODE · fixture loaded · no external services connected' }],
     rover: { position: { ...HOME }, heading: Math.PI, speed: 0, battery: 94, stopped: false, missionId: null, distance: 0, lidar: Array.from({ length: 72 }, (_, i) => 2.6 + Math.sin(i * 0.53) * 0.8 + Math.cos(i * 0.19) * 0.6) },
+    twinFeed: { maps: [], anchors: [] },
     telemetry: Array.from({ length: 40 }, (_, i) => ({ at: i - 39, traffic: Math.round(38 + Math.sin(i * 0.41) * 9 + Math.cos(i * 0.17) * 5), signals: 31 + i % 3, cpu: 24 + Math.round(Math.sin(i * 0.29) * 5), latency: 12 + Math.round(Math.cos(i * 0.31) * 3) })), sequence: 1, scenarioStep: 0, tickRemainder: 0,
   }
 }

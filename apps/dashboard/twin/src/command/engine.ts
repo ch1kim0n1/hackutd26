@@ -1,6 +1,9 @@
 import { MockAgentProvider, buildAgentContext, evaluatePolicy } from './agents'
 import { HOME, createInitialState } from './fixtures'
-import type { AgentRecord, CommandState, Incident, Mission, ObservationKind, Point, Severity, TimelineEntry } from './model'
+import { contractToTwinMap } from './twin/occupancyMesh'
+import { parseOccupancyGrid } from './twin/occupancyContract'
+import { simOccupancyContract } from './twin/simFeed'
+import { BASE_TIME, type AgentRecord, type CommandState, type Incident, type Mission, type ObservationKind, type Point, type Severity, type TimelineEntry } from './model'
 
 const FIXED_STEP = 0.25
 const provider = new MockAgentProvider()
@@ -269,6 +272,19 @@ export function retryInspection(state: CommandState, incidentId: string): Comman
   timeline(next, target, 'operator', 'Inspection reassigned by operator', 'A fresh policy check is required. An emergency stop continues to inhibit dispatch.')
   emit(next, 'inspection.reassigned', 'Operator requested another bounded inspection', incidentId)
   return next
+}
+/** Demo-mode twin spatial feed: a deterministic simulated occupancy
+ * map (new revision every 2 elapsed-seconds) labelled DEMO — the same
+ * contract pipeline live mode uses, so the 3D layer is exercisable
+ * before hardware exists. Idempotent per revision. */
+export function withTwinFeed(state: CommandState): CommandState {
+  const revision = Math.floor(state.elapsed / 2)
+  const existing = state.twinFeed.maps[0]
+  if (existing && existing.revision === revision && existing.provenance === 'DEMO') return state
+  const nowMicros = (BASE_TIME + state.elapsed * 1000) * 1000
+  const parsed = parseOccupancyGrid(simOccupancyContract(revision, nowMicros))
+  const { map, anchors } = contractToTwinMap(parsed, 'DEMO', state.elapsed, nowMicros)
+  return { ...state, twinFeed: { maps: [map], anchors } }
 }
 export function createOperatorIncident(state: CommandState, title: string, zoneId: string, severity: Severity): CommandState {
   if (!title.trim() || !state.zones.some(zone => zone.id === zoneId) || !['low', 'medium', 'high', 'critical'].includes(severity)) return state
