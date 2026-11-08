@@ -1,0 +1,76 @@
+{
+  "schema": "incident-record/1",
+  "scenario": "prevention",
+  "title": "Preventive hardening from posture drift",
+  "status": "resolved",
+  "severity": "medium",
+  "label": "MOCK",
+  "provenance": "DEMO",
+  "agent_summary": "Posture assessment found confirmed drift on vpi-compute-01. Risk ranking promoted it to an incident candidate; a hardening proposal was approved by a commander and verified against the node config.",
+  "uncertainty": "low \u2014 config re-read confirms the fix landed",
+  "evidence_ids": [
+    "ev-f5ef736b56",
+    "ev-e2d7c9be61",
+    "ev-9bda6a21a9",
+    "ev-a0e61a8e88",
+    "ev-ec573350d9"
+  ],
+  "timeline": [
+    {
+      "step": 1,
+      "evidence_id": "ev-f5ef736b56",
+      "detail": "{\"findings\": 5, \"stage\": \"posture\", \"top_rank\": 1}"
+    },
+    {
+      "step": 2,
+      "evidence_id": "ev-e2d7c9be61",
+      "detail": "{\"id\": \"cand-da23e9e97076\", \"stage\": \"candidate\", \"status\": \"auto_filed\"}"
+    },
+    {
+      "step": 3,
+      "evidence_id": "ev-9bda6a21a9",
+      "detail": "{\"proposal_id\": \"hp-430cd5b807ef\", \"stage\": \"propose\", \"status\": \"ok\"}"
+    },
+    {
+      "step": 4,
+      "evidence_id": "ev-a0e61a8e88",
+      "detail": "{\"msg\": \"approved\", \"ok\": true, \"stage\": \"approve\"}"
+    },
+    {
+      "step": 5,
+      "evidence_id": "ev-ec573350d9",
+      "detail": "{\"msg\": \"verified\", \"ok\": true, \"stage\": \"execute\", \"state\": \"verified\"}"
+    }
+  ],
+  "result": {
+    "ok": true,
+    "evidence": [
+      {
+        "stage": "posture",
+        "findings": 5,
+        "top_rank": 1
+      },
+      {
+        "stage": "candidate",
+        "id": "cand-da23e9e97076",
+        "status": "auto_filed"
+      },
+      {
+        "stage": "propose",
+        "status": "ok",
+        "proposal_id": "hp-430cd5b807ef"
+      },
+      {
+        "stage": "approve",
+        "ok": true,
+        "msg": "approved"
+      },
+      {
+        "stage": "execute",
+        "ok": true,
+        "msg": "verified",
+        "state": "verified"
+      }
+    ]
+  }
+}

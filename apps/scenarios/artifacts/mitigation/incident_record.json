@@ -1,0 +1,57 @@
+{
+  "schema": "incident-record/1",
+  "scenario": "mitigation",
+  "title": "Quarantine, verify, recover",
+  "status": "resolved",
+  "severity": "medium",
+  "label": "MOCK",
+  "provenance": "DEMO",
+  "agent_summary": "An approved quarantine_vlan action was dispatched to the executor, applied to vpi-compute-01, and independently verified via health probe before VERIFIED. Release restored reachability.",
+  "uncertainty": "low \u2014 independent probe confirmed both isolation and recovery",
+  "evidence_ids": [
+    "ev-2d5409dc04",
+    "ev-f56f747fc6"
+  ],
+  "timeline": [
+    {
+      "step": 1,
+      "evidence_id": "ev-2d5409dc04",
+      "detail": "{\"http\": 200, \"record\": {\"action_id\": \"act-reg-1\", \"action_type\": \"quarantine_vlan\", \"error\": \"\", \"incident_id\": \"inc-reg-1\", \"state\": \"verified\", \"states\": [\"started\", \"api_acked\", \"verified\"], \"targ"
+    },
+    {
+      "step": 2,
+      "evidence_id": "ev-f56f747fc6",
+      "detail": "{\"reachable\": true, \"stage\": \"recovery\"}"
+    }
+  ],
+  "result": {
+    "ok": true,
+    "evidence": [
+      {
+        "stage": "execute",
+        "http": 200,
+        "record": {
+          "action_id": "act-reg-1",
+          "incident_id": "inc-reg-1",
+          "action_type": "quarantine_vlan",
+          "target_id": "vpi-compute-01",
+          "state": "verified",
+          "verification": {
+            "method": "independent_probe",
+            "effective": true
+          },
+          "error": "",
+          "states": [
+            "started",
+            "api_acked",
+            "verified"
+          ]
+        }
+      },
+      {
+        "stage": "recovery",
+        "reachable": true
+      }
+    ]
+  }
+}

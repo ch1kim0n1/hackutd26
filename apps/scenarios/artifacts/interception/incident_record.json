@@ -1,0 +1,112 @@
+{
+  "schema": "incident-record/1",
+  "scenario": "interception",
+  "title": "Rogue flow redirected to decoy",
+  "status": "resolved",
+  "severity": "medium",
+  "label": "MOCK",
+  "provenance": "DEMO",
+  "agent_summary": "A flow from attacker-01 matched the deception policy and was redirected to decoy-01; the decoy captured the probe. A second known-bad source was blocked outright; legitimate ops traffic passed.",
+  "uncertainty": "medium \u2014 decoy capture proves intent to probe, not payload contents",
+  "evidence_ids": [
+    "ev-79346c4fb8",
+    "ev-ba91572658",
+    "ev-77d0ab859c"
+  ],
+  "timeline": [
+    {
+      "step": 1,
+      "evidence_id": "ev-79346c4fb8",
+      "detail": "{\"action\": \"redirect\", \"at\": 1794130828.464556, \"decision_id\": \"fdec-7b17f56714fc\", \"decoy\": {\"decoy_trace\": \"decoy-reg-1\", \"payload_sha256\": \"fb3228c2a07a3de5\", \"synthetic\": true}, \"detail\": \"\", \"dst"
+    },
+    {
+      "step": 2,
+      "evidence_id": "ev-ba91572658",
+      "detail": "{\"action\": \"block\", \"at\": 1794130828.464598, \"decision_id\": \"fdec-4c2d1139974e\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-2\", \"out"
+    },
+    {
+      "step": 3,
+      "evidence_id": "ev-77d0ab859c",
+      "detail": "{\"action\": \"allow\", \"at\": 1794130828.464907, \"decision_id\": \"fdec-7dc6f5dc0e74\", \"detail\": \"\", \"dst\": {\"node_id\": \"vpi-01\", \"service\": \"http\"}, \"enforcement\": \"simulated\", \"flow_id\": \"reg-int-3\", \"out"
+    }
+  ],
+  "result": {
+    "ok": true,
+    "evidence": [
+      {
+        "schema": "deception-evidence/1",
+        "trace_id": "rt-9c134623ded1",
+        "decision_id": "fdec-7b17f56714fc",
+        "flow_id": "reg-int-1",
+        "rule_id": "decoy-attacker-01",
+        "action": "redirect",
+        "outcome": "decoy_hit",
+        "src": {
+          "node_id": "attacker-01",
+          "service": "http"
+        },
+        "dst": {
+          "node_id": "vpi-01",
+          "service": "http"
+        },
+        "redirect_to": {
+          "node_id": "decoy-01",
+          "service": "http"
+        },
+        "provenance": "DEMO",
+        "enforcement": "simulated",
+        "at": 1794130828.464556,
+        "detail": "",
+        "decoy": {
+          "decoy_trace": "decoy-reg-1",
+          "synthetic": true,
+          "payload_sha256": "fb3228c2a07a3de5"
+        }
+      },
+      {
+        "schema": "deception-evidence/1",
+        "trace_id": "rt-42e0dc7dc919",
+        "decision_id": "fdec-4c2d1139974e",
+        "flow_id": "reg-int-2",
+        "rule_id": "block-bad-actor",
+        "action": "block",
+        "outcome": "blocked",
+        "src": {
+          "node_id": "bad-actor",
+          "service": "http"
+        },
+        "dst": {
+          "node_id": "vpi-01",
+          "service": "http"
+        },
+        "redirect_to": null,
+        "provenance": "DEMO",
+        "enforcement": "simulated",
+        "at": 1794130828.464598,
+        "detail": ""
+      },
+      {
+        "schema": "deception-evidence/1",
+        "trace_id": "rt-253397770f2b",
+        "decision_id": "fdec-7dc6f5dc0e74",
+        "flow_id": "reg-int-3",
+        "rule_id": null,
+        "action": "allow",
+        "outcome": "routed",
+        "src": {
+          "node_id": "ops-01",
+          "service": "http"
+        },
+        "dst": {
+          "node_id": "vpi-01",
+          "service": "http"
+        },
+        "redirect_to": null,
+        "provenance": "DEMO",
+        "enforcement": "simulated",
+        "at": 1794130828.464907,
+        "detail": ""
+      }
+    ]
+  }
+}
