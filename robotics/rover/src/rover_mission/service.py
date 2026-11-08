@@ -16,6 +16,13 @@ from typing import List, Optional
 
 from .auth import sign_mission
 from .camera import ArtifactStore, Camera, EvidenceRef, SyntheticCamera
+from .common import evidence_to_common
+from .inspection import (
+    InspectionEvidenceStore,
+    InspectionRegistry,
+    InspectionReport,
+    new_report,
+)
 from .localization import NoopDetector, PoseEstimator, TagDetector
 from .mission_contract import MissionValidator, ValidationResult
 from .models import (
@@ -28,6 +35,7 @@ from .models import (
 )
 from .motor_link import MotorLink, RoverTelemetry
 from .navigator import NavConfig, NavResult, Navigator
+from .netinspect import InspectionDenied, NetworkInspector, SimulatedNetworkInspector
 from .routes import RouteMap
 from .telemetry import ConsolePublisher, Publisher
 
@@ -42,6 +50,8 @@ class ServiceConfig:
     obstacle_mission_patience_s: float = 45.0
     evidence_dir: str = "var/evidence"
     rescan_settle_s: float = 2.0           # time to let puck scan after request
+    inspection_targets_path: Optional[str] = None  # config/inspection_targets.json
+    inspection_max_age_s: float = 300.0    # stale-result freshness gate
 
 
 @dataclass
@@ -51,9 +61,10 @@ class _ActiveMission:
     waypoint_ids: List[str] = field(default_factory=list)
     wp_index: int = 0
     lap: int = 0
-    phase: str = "navigate"                # navigate|dwell|capture|rescan|done
+    phase: str = "navigate"                # navigate|dwell|capture|rescan|inspect|done
     phase_since: float = 0.0
     evidence: List[EvidenceRef] = field(default_factory=list)
+    inspection_done: bool = False
 
 
 class RoverService:
@@ -66,6 +77,8 @@ class RoverService:
         publisher: Optional[Publisher] = None,
         config: Optional[ServiceConfig] = None,
         clock=time.time,
+        inspector: Optional[NetworkInspector] = None,
+        inspection_registry: Optional[InspectionRegistry] = None,
     ):
         self.routes = route_map
         self.link = link
@@ -93,6 +106,23 @@ class RoverService:
         ))
         self.publisher = publisher or ConsolePublisher()
 
+        # Network inspection (hardware-independent): registered Pi targets
+        # + pluggable inspector. Default is the simulated adapter — live
+        # probes are opt-in via CLI/env so nothing touches the network
+        # unexpectedly.
+        if inspection_registry is not None:
+            self.inspection_registry = inspection_registry
+        elif self.cfg.inspection_targets_path:
+            self.inspection_registry = InspectionRegistry.load(
+                self.cfg.inspection_targets_path)
+        else:
+            self.inspection_registry = InspectionRegistry()
+        self.inspector = inspector or SimulatedNetworkInspector(clock=clock)
+        self.inspection_store = InspectionEvidenceStore(
+            Path(self.cfg.evidence_dir) / "inspection")
+        self.inspection_reports: List[InspectionReport] = []
+        self.inspection_evidence: List[dict] = []
+
         self.missions: List[MissionRecord] = []
         self._queue: List[dict] = []
         self._active: Optional[_ActiveMission] = None
@@ -111,6 +141,15 @@ class RoverService:
             return False, res.reason, None
 
         mtype = MissionType(mission["type"])
+
+        # Idempotent ingest: a replayed command (same mission_id or
+        # command_id — the module uses one id for both) is rejected, never
+        # re-queued. Records persist for the service lifetime.
+        if any(m.mission_id == mission["mission_id"]
+               or m.command_id == mission["command_id"]
+               for m in self.missions):
+            return False, "duplicate_mission", None
+
         record = MissionRecord(
             mission_id=mission["mission_id"],
             command_id=mission["command_id"],
@@ -120,6 +159,7 @@ class RoverService:
             waypoint_id=mission.get("waypoint_id"),
             route_id=mission.get("route_id"),
             camera_id=mission.get("camera_id"),
+            incident_id=mission.get("incident_id"),
             expires_at=mission.get("expires_at"),
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
@@ -258,6 +298,13 @@ class RoverService:
             self._do_rescan(active, record, now)
             return
 
+        # Checkpoint network inspection runs after the waypoint's own
+        # actions (capture/rescan/dwell) — wp_index is already past the
+        # end, so this must precede the exhaustion check.
+        if active.phase == "inspect":
+            self._do_inspect(active, record, now)
+            return
+
         # Navigation-based missions: patrol / inspect / return_home
         if active.wp_index >= len(active.waypoint_ids):
             self._finish_active(MissionState.COMPLETED, "route_complete")
@@ -325,6 +372,13 @@ class RoverService:
 
     def _advance_waypoint(self, active: _ActiveMission) -> None:
         active.wp_index += 1
+        # inspect_zone: after the final waypoint's actions, divert into the
+        # network-inspection checkpoint phase instead of completing.
+        if (active.record.type == MissionType.INSPECT_ZONE
+                and not active.inspection_done
+                and active.wp_index >= len(active.waypoint_ids)):
+            active.phase = "inspect"
+            return
         active.phase = "navigate"
         # patrol laps
         if (active.route is not None and active.wp_index >= len(active.waypoint_ids)):
@@ -384,6 +438,102 @@ class RoverService:
         if now - active.phase_since >= self.cfg.rescan_settle_s:
             self._emit(record, "wireless_rescan_done", zone_id=record.zone_id)
             self._finish_active(MissionState.COMPLETED, "rescan_requested")
+
+    # ------------------------------------------------------------------
+    # Checkpoint network inspection (inspect_zone only)
+    # ------------------------------------------------------------------
+    def _do_inspect(self, active: _ActiveMission, record: MissionRecord,
+                    now: float) -> None:
+        """Run the registered-Pi inspection at the checkpoint.
+
+        Resolves (zone_id, waypoint_id) -> InspectionTarget, delegates to
+        the configured NetworkInspector (simulated by default; live probes
+        are allowlisted + bounded), applies the stale-result freshness
+        gate, stores the structured report as hashed evidence, and emits
+        mission telemetry for the gateway/Nemotron path. Inspection
+        outcomes — including unreachable devices, denied targets, sensor
+        errors and stale results — are evidence, not mission failures:
+        navigation and photo capture already succeeded honestly.
+        """
+        active.inspection_done = True
+        active.phase = "navigate"
+        if record.state != MissionState.SCANNING:
+            record.transition(MissionState.SCANNING, "checkpoint_inspection")
+
+        wp_id = record.waypoint_id or ""
+        target = (self.inspection_registry.target_for(record.zone_id, wp_id)
+                  if record.zone_id else None)
+        self._emit(record, "inspection_started",
+                   target_device_id=target.device_id if target else "",
+                   incident_id=record.incident_id or "")
+
+        ctx = {
+            "mission_id": record.mission_id,
+            "command_id": record.command_id,
+            "incident_id": record.incident_id or "",
+            "device_id": record.device_id,
+            "zone_id": record.zone_id or "",
+            "waypoint_id": wp_id,
+            "target_device_id": target.device_id if target else "",
+            "pose": self._pose_dict(),
+            "started_epoch": now,
+        }
+        try:
+            if target is None:
+                report = new_report(
+                    ctx, status="no_registered_target",
+                    status_detail="no Pi registered for this checkpoint",
+                    adapter="none", started_epoch=now, completed_epoch=now)
+            else:
+                report = self.inspector.inspect(target, ctx)
+        except InspectionDenied as exc:
+            report = new_report(
+                ctx, status="denied", status_detail=str(exc)[:200],
+                adapter=getattr(self.inspector, "name", ""),
+                provenance=getattr(self.inspector, "provenance", "DEMO"),
+                synthetic=getattr(self.inspector, "synthetic", True),
+                started_epoch=now, completed_epoch=now)
+        except Exception as exc:
+            report = new_report(
+                ctx, status="error",
+                status_detail=f"inspector_error:{exc}"[:200],
+                adapter=getattr(self.inspector, "name", ""),
+                provenance=getattr(self.inspector, "provenance", "DEMO"),
+                synthetic=getattr(self.inspector, "synthetic", True),
+                started_epoch=now, completed_epoch=now)
+
+        # Freshness gate: a result finalized too long ago is stale evidence.
+        if report.is_stale(now, self.cfg.inspection_max_age_s):
+            report.status = "stale"
+            age = now - report.completed_epoch
+            report.status_detail = (
+                (report.status_detail + ";" if report.status_detail else "")
+                + f"result_age_s:{age:.1f}")
+
+        meta = self.inspection_store.store(report)
+        common_ev = evidence_to_common(
+            meta, device_id=record.device_id,
+            provenance=report.provenance, mission_id=record.mission_id)
+        if common_ev is not None:
+            self.inspection_evidence.append(common_ev)
+        self.inspection_reports.append(report)
+
+        summ = report.summary()
+        self._emit(record, "inspection_completed",
+                   target_device_id=report.target_device_id,
+                   incident_id=report.incident_id,
+                   status=report.status,
+                   status_detail=report.status_detail[:120],
+                   adapter=report.adapter,
+                   artifact_id=meta["artifact_id"],
+                   sha256=meta["sha256"],
+                   checks_ok=summ["checks_ok"],
+                   checks_failed=summ["checks_failed"],
+                   observations=summ["observations"],
+                   provenance=report.provenance,
+                   synthetic=report.synthetic)
+        self._finish_active(MissionState.COMPLETED,
+                            f"inspection_{report.status}")
 
     def _finish_active(self, state: MissionState, reason: str) -> None:
         active = self._active

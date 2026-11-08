@@ -71,6 +71,26 @@ function cmd(over: Record<string, unknown> = {}) {
   check('unknown type rejected', !r.ok);
 }
 
+// --- incident_id passthrough (inspection evidence linkage) ---
+{
+  const r = transformCommand(cmd({ incident_id: 'inc-42' }), 'rover-01', CFG, SECRET);
+  check('incident_id passthrough', r.ok && r.mission.incident_id === 'inc-42');
+  if (r.ok) {
+    const { signature, ...unsigned } = r.mission;
+    const expected = createHmac('sha256', SECRET)
+      .update(canonicalJson(unsigned)).digest('hex');
+    check('incident_id covered by signature', signature === expected);
+  }
+}
+{
+  const r = transformCommand(cmd({ incident_id: 'inc-💥' }), 'rover-01', CFG, SECRET);
+  check('non-ascii incident_id rejected', !r.ok);
+}
+{
+  const r = transformCommand(cmd(), 'rover-01', CFG, SECRET);
+  check('absent incident_id stays absent', r.ok && !('incident_id' in r.mission));
+}
+
 // --- security checks ---
 {
   const r = transformCommand(cmd({ device_id: 'rover-02' }), 'rover-01', CFG, SECRET);
