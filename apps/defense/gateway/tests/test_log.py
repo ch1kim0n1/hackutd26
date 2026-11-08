@@ -11,6 +11,7 @@ from defense_gateway import (
     FlowPolicy,
     FlowRule,
     FlowTuple,
+    Provenance,
     DecisionLog,
 )
 
@@ -24,7 +25,8 @@ def make_decision(flow_id="flow-001", outcome=None):
     ])
     dst = FlowEndpoint("dc-pi-01", outcome or "http")
     f = FlowTuple(flow_id=flow_id,
-                  src=FlowEndpoint("lab-client-01", "https"), dst=dst)
+                  src=FlowEndpoint("lab-client-01", "https"), dst=dst,
+                  provenance=Provenance.DEMO)
     return DecisionEngine(pol).evaluate(f, trace_id="t-log", now=1_700_000_000)
 
 
@@ -101,7 +103,8 @@ def test_default_monitor_recorded_as_unmatched():
                      default_action=DefaultAction.MONITOR, rules=[])
     f = FlowTuple(flow_id="flow-x",
                   src=FlowEndpoint("n-1", "https"),
-                  dst=FlowEndpoint("n-2", "https"))
+                  dst=FlowEndpoint("n-2", "https"),
+                  provenance=Provenance.DEMO)
     d = DecisionEngine(pol).evaluate(f, now=1)
     rec = DecisionLog().append(d)
     assert rec.decision["decision"] == "allow"
