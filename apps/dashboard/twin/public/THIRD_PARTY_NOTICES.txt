@@ -45336,3 +45336,9 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
+Showcase photography (Unsplash License, https://unsplash.com/license):
+- stock-datacenter.jpg — https://images.unsplash.com/photo-1558494949-ef010cbdcc31
+- stock-circuit.jpg — https://images.unsplash.com/photo-1518770660439-4636190af475
+- stock-cables.jpg — https://images.unsplash.com/photo-1544197150-b99a580bb7a8
+Concept illustrations in /showcase are original project artwork (docs/visuals).

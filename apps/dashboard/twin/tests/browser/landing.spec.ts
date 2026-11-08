@@ -12,8 +12,8 @@ test('landing page introduces the project and hands over to the dashboard', asyn
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('heading', { name: 'Signal to verdict.' })).toBeInViewport()
 
-  // The floating corner button opens the dashboard from anywhere on the page.
-  await page.getByRole('link', { name: /Open dashboard/ }).click()
+  // The hero CTA opens the dashboard.
+  await page.getByRole('link', { name: /Launch Phantom Command/ }).first().click()
   await expect(page).toHaveURL(/#overview$/)
   await expect(page.getByRole('heading', { name: 'Command overview', exact: true })).toBeVisible()
 
