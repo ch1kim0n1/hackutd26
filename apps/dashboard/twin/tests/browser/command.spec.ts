@@ -41,7 +41,8 @@ test('six command workspaces render, share selection, and remain local', async (
   page.on('request', request => { if (/^https?:/.test(request.url()) && new URL(request.url()).hostname !== '127.0.0.1') external.push(request.url()) })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Command overview', exact: true })).toBeVisible()
-  await expect(page.getByText('DEMO MODE', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'DEMO', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'DEMO', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.pc-preview-scene canvas')).toBeVisible()
   await page.waitForTimeout(250)
   await page.screenshot({ path: 'test-results/command-overview.png', fullPage: true })
@@ -135,7 +136,10 @@ test('disruptive mock actions require operator approval and emergency stop latch
   await page.getByRole('button',{name:'Release stop',exact:true}).click()
   await nav(page, 'Incident Center').click()
   const retry = page.getByRole('button',{name:'Reassign inspection',exact:true})
-  if (await retry.isVisible()) await retry.click()
+  // The cancelled investigation mission may need operator reassignment;
+  // wait for the dossier to render it, but don't fail if the autonomous
+  // flow already recovered on its own.
+  await retry.waitFor({state:'visible',timeout:5000}).then(() => retry.click()).catch(() => {})
   await nav(page, 'Nemotron Intelligence').click()
   await expect(page.getByRole('button',{name:'Approve simulation',exact:true})).toBeVisible({timeout:25000})
   await page.getByRole('button',{name:'Pause',exact:true}).click()

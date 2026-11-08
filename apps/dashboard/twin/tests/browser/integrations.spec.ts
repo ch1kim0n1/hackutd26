@@ -89,7 +89,7 @@ test('the preserved legacy entry loads its synthetic twin', async ({ page }) => 
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/legacy.html')
-  await expect(page.getByText('DEMO FEED — simulated telemetry')).toBeVisible()
+  await expect(page.getByText('DEMO FEED - simulated telemetry')).toBeVisible()
   await expect(page.locator('canvas')).toBeVisible()
   expect(errors).toEqual([])
 })
