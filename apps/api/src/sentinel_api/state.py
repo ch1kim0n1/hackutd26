@@ -32,7 +32,7 @@ from scope_matrix.service import ScopeMatrix  # noqa: E402
 # report. Used because no live Nemotron endpoint exists (Milestone 4).
 _INVESTIGATION_SCRIPT = [
     FakeResponse(tool_calls=[
-        tc("get_recent_observations", {"zone_id": "*", "limit": 10}),
+        tc("get_recent_observations", {"incident_id": "", "limit": 10}),
         tc("get_authorized_assets", {"zone_id": "rack-01"}),
     ]),
     FakeResponse(content=(
@@ -85,11 +85,20 @@ class AppState:
         default_factory=_default_investigator_stack)
     investigation_runs: list[dict] = field(default_factory=list)
     _agent_cache: dict = field(default_factory=dict)
+    _orchestrator: object = field(default=None, repr=False)
 
     @property
     def investigator_model(self):
         """Backward-compatible alias for the selected ChatModel."""
         return self.investigator_stack.model
+
+    @property
+    def orchestrator(self):
+        """Lazy event-driven orchestrator (#112)."""
+        if self._orchestrator is None:
+            from .orchestrator import Orchestrator
+            self._orchestrator = Orchestrator(self)
+        return self._orchestrator
 
     # ------------- seeding -------------
     def seed(self) -> dict[str, str]:
@@ -135,7 +144,7 @@ class AppState:
             ctx = ToolContext(incident_id=incident_id,
                               allowed_zones={"rack-01", "lab-b", "lobby"},
                               allowed_devices={"device-lab-01", "lab-ap-01"})
-            registry = registry_from_backends(ctx, backends)
+            registry = registry_from_backends(ctx, backends.as_backends())
             self._agent_cache[incident_id] = InvestigationAgent(
                 self.investigator_stack.model, registry)
         return self._agent_cache[incident_id]

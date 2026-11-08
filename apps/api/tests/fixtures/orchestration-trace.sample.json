@@ -1,0 +1,102 @@
+{
+  "event_id": "obs-sample-001",
+  "incident_id": "inc-6021c9eff3",
+  "kind": "wifi_probe",
+  "source": "observation",
+  "by": "orchestrator",
+  "brief": "Autonomous investigation trigger: wifi_probe; device=device-lab-01; zone=rack-01; summary=previously unseen probe request from lab device",
+  "provenance": "MOCK",
+  "provider_mode": "fake",
+  "status": "completed",
+  "budget_exhausted": false,
+  "assessment": {
+    "hypotheses": [
+      "Probe pattern consistent with unauthorized device survey; dwell time and payload unknown."
+    ],
+    "competing_explanations": [],
+    "unknowns": [
+      "payload contents",
+      "dwell time",
+      "operator intent"
+    ],
+    "evidence_ids": [
+      "asm-1",
+      "ev-1"
+    ],
+    "summary": "Probe pattern consistent with unauthorized device survey; dwell time and payload unknown.",
+    "tool_calls_made": 3,
+    "degraded": false,
+    "degrade_reason": ""
+  },
+  "trace": [
+    {
+      "latency_ms": 1.0,
+      "model": "scripted"
+    },
+    {
+      "tool": "get_recent_observations",
+      "ok": true,
+      "denied": false,
+      "args_keys": [
+        "incident_id",
+        "limit"
+      ]
+    },
+    {
+      "tool": "get_evidence_metadata",
+      "ok": true,
+      "denied": false,
+      "args_keys": [
+        "evidence_id"
+      ]
+    },
+    {
+      "latency_ms": 1.0,
+      "model": "scripted"
+    },
+    {
+      "tool": "append_agent_assessment",
+      "ok": true,
+      "denied": false,
+      "args_keys": [
+        "assessment",
+        "evidence_ids",
+        "incident_id",
+        "unknowns"
+      ]
+    },
+    {
+      "latency_ms": 1.0,
+      "model": "scripted"
+    }
+  ],
+  "tool_calls_made": 3,
+  "citations": [
+    "asm-1",
+    "ev-1"
+  ],
+  "assessment_accepted": true,
+  "assessment_violations": [],
+  "denied_tool_calls": [],
+  "guard_trace": [
+    {
+      "tool": "get_recent_observations",
+      "allowed": true,
+      "reason": ""
+    },
+    {
+      "tool": "get_evidence_metadata",
+      "allowed": true,
+      "reason": ""
+    },
+    {
+      "tool": "append_agent_assessment",
+      "allowed": true,
+      "reason": ""
+    }
+  ],
+  "dedupe_key": [
+    "obs-sample-001",
+    "inc-6021c9eff3"
+  ]
+}
