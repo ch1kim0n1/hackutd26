@@ -95,8 +95,8 @@ until issue #98.
 
 | # | Blocker | Evidence | Owner |
 |---|---|---|---|
-| B1 | `services/gateway` integration test + `src/index.ts` need generated `bindings/` (requires `spacetime` CLI + published module) and a running SpacetimeDB + `GATEWAY_TEST_TOKENS` + seeded lab | `test/gateway.test.ts` header; `ERR_MODULE_NOT_FOUND: bindings/index` | #97 |
-| B2 | `spacetimedb` `test:smoke` needs `spacetime` CLI (not installed) + server; `tsc --noEmit` passes | `package.json` scripts | #97 |
+| B1 | `services/gateway` integration test + `src/index.ts` need generated `bindings/` (requires `spacetime` CLI + published module) and a running SpacetimeDB + `GATEWAY_TEST_TOKENS` + seeded lab | `test/gateway.test.ts` header; `ERR_MODULE_NOT_FOUND: bindings/index` | **done (#97)** — bindings generate via `npm run generate`; compose stack + seed verified; test 17/17 |
+| B2 | `spacetimedb` `test:smoke` needs `spacetime` CLI (not installed) + server; `tsc --noEmit` passes | `package.json` scripts | **done (#97)** — CLI pinned to server version (deploy/README); smoke 44/44 on scratch DB via `SPACETIMEDB_DATABASE` |
 | B3 | `spacetimedb/package-lock.json` was out of sync with package.json (missing `tsx`) — **fixed in this PR** via `npm install` lock regen | `npm ci` EUSAGE | done (#95) |
 | B4 | `network_wand_code` expects `backend/app.py` (`POST /api/wand`) — absent from repo | `network_wand_code/config.yaml` | #117 |
 | B5 | Frontend `DEMO_ADAPTERS` empty — no live backend connection | `adapters.ts:13` | #98 |

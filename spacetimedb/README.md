@@ -123,6 +123,9 @@ asserts 27 behaviors: ingest dedupe/replay/forgery/oversize rejection,
 scoped-view denial and grant, live chat fan-out to two subscribers, nonce
 dedupe, RBAC negatives, action propose→approve(SoD)→outbox→executor→verify,
 mission assign→dispatch, scope entries, and incident status transitions.
-It persists per-role identity tokens in `.smoke-identity-tokens.json`
-(gitignored) so repeated runs reuse stable principals; wipe with
-`--delete-data=always` on publish for a clean slate.
+It persists per-role identity tokens in
+`.smoke-identity-tokens-<database>.json` (gitignored) so repeated runs
+reuse stable principals; wipe with `--delete-data=always` on publish for a
+clean slate. The suite needs a FRESH/EMPTY database — point
+`SPACETIMEDB_DATABASE` at a scratch DB (e.g. `sentinel-hive-smoke`) to run
+it alongside the seeded `sentinel-hive` lab.
