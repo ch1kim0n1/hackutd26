@@ -24,6 +24,7 @@ from investigator.agent import InvestigationAgent  # noqa: E402
 from investigator.backends import FakeBackends  # noqa: E402
 from investigator.scripted import FakeResponse, ScriptedModel, tc  # noqa: E402
 from investigator.tools import ToolContext, registry_from_backends  # noqa: E402
+from nemotron_client.provider import ProviderInfo, build_chat_model  # noqa: E402
 from response_audit.audit import AuditLog  # noqa: E402
 from scope_matrix.service import ScopeMatrix  # noqa: E402
 
@@ -50,6 +51,21 @@ DEFAULT_TARGETS = {
 
 
 @dataclass
+class InvestigatorStack:
+    """Selected ChatModel + non-secret provider description (issue #111).
+    Live Nemotron when NEMOTRON_* env is configured; the deterministic
+    scripted investigation otherwise — identical API behavior either way."""
+    model: object
+    provider: ProviderInfo
+
+
+def _default_investigator_stack() -> InvestigatorStack:
+    model, info = build_chat_model(
+        fallback=ScriptedModel(list(_INVESTIGATION_SCRIPT)))
+    return InvestigatorStack(model=model, provider=info)
+
+
+@dataclass
 class AppState:
     identity: IdentityService = field(default_factory=IdentityService)
     incidents: IncidentService = field(default_factory=IncidentService)
@@ -65,10 +81,15 @@ class AppState:
     ))
     audit: AuditLog = field(default_factory=AuditLog)
     executor: ExecutorService = field(default_factory=ExecutorService)
-    investigator_model: ScriptedModel = field(
-        default_factory=lambda: ScriptedModel(list(_INVESTIGATION_SCRIPT)))
+    investigator_stack: InvestigatorStack = field(
+        default_factory=_default_investigator_stack)
     investigation_runs: list[dict] = field(default_factory=list)
     _agent_cache: dict = field(default_factory=dict)
+
+    @property
+    def investigator_model(self):
+        """Backward-compatible alias for the selected ChatModel."""
+        return self.investigator_stack.model
 
     # ------------- seeding -------------
     def seed(self) -> dict[str, str]:
@@ -116,7 +137,7 @@ class AppState:
                               allowed_devices={"device-lab-01", "lab-ap-01"})
             registry = registry_from_backends(ctx, backends)
             self._agent_cache[incident_id] = InvestigationAgent(
-                self.investigator_model, registry)
+                self.investigator_stack.model, registry)
         return self._agent_cache[incident_id]
 
 
