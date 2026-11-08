@@ -27,6 +27,7 @@ const stats = {
   rejected: 0,
   dispatched: 0,
   outboxDone: 0,
+  eventsForwarded: 0,
   lastIngestAt: 0,
   lastError: '',
 };
@@ -130,6 +131,44 @@ async function handleTelemetry(topic: string, payload: Buffer): Promise<void> {
   });
   stats.ingested++;
   stats.lastIngestAt = Date.now();
+  void notifyInvestigation(v);
+}
+
+// Issue #112: forward accepted observations to the investigator
+// orchestrator so Nemotron investigates without manual prompting.
+// Fire-and-forget — investigation latency must never stall ingest.
+function notifyInvestigation(v: {
+  eventId: string; deviceId: string; kind: string; zoneId: string;
+  observedAtMicros: bigint; dataJson: string; traceId: string;
+}): void {
+  if (!config.investigationEventUrl) return;
+  const body = JSON.stringify({
+    event_id: v.eventId,
+    kind: v.kind,
+    source: 'observation',
+    device_id: v.deviceId,
+    zone_id: v.zoneId,
+    provenance: 'LIVE',
+    observed_at: new Date(Number(v.observedAtMicros) / 1000).toISOString(),
+    summary: `${v.kind} on ${v.deviceId}`,
+    data: { seq_trace: v.traceId, payload: v.dataJson.slice(0, 500) },
+  });
+  fetch(config.investigationEventUrl, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(config.investigationEventToken
+        ? { authorization: `Bearer ${config.investigationEventToken}` }
+        : {}),
+    },
+    body,
+    signal: AbortSignal.timeout(2_000),
+  }).then((res) => {
+    if (res.ok) stats.eventsForwarded++;
+    else stats.lastError = `orch event ${res.status}`;
+  }).catch((err) => {
+    stats.lastError = `orch event: ${String(err).slice(0, 120)}`;
+  });
 }
 
 // ---------------------------------------------------------------------------

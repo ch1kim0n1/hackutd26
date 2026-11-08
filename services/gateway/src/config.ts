@@ -13,6 +13,10 @@ export interface GatewayConfig {
   /** Optional lab executor webhook for approved actions (issue #17 outbox). */
   executorWebhookUrl?: string;
   executorWebhookToken?: string;
+  /** Optional investigator-orchestrator ingest endpoint (issue #112):
+   *  accepted observations/finding events trigger Nemotron investigations. */
+  investigationEventUrl?: string;
+  investigationEventToken?: string;
   /** device_id -> shared HMAC secret for signature'd observation envelopes
    *  (sensors/pucks). Configured devices MUST present a valid signature. */
   deviceHmacKeys: Record<string, string>;
@@ -37,6 +41,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     topicPrefix: env.MQTT_TOPIC_PREFIX ?? 'sentinel/v1',
     executorWebhookUrl: env.EXECUTOR_WEBHOOK_URL,
     executorWebhookToken: env.EXECUTOR_WEBHOOK_TOKEN,
+    investigationEventUrl: env.INVESTIGATION_EVENT_URL,
+    investigationEventToken: env.INVESTIGATION_EVENT_TOKEN,
     deviceHmacKeys: env.GATEWAY_DEVICE_HMAC_KEYS
       ? (JSON.parse(env.GATEWAY_DEVICE_HMAC_KEYS) as Record<string, string>)
       : {},

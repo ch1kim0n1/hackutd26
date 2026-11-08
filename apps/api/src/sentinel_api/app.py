@@ -83,6 +83,21 @@ class InvestigationIn(BaseModel):
     brief: str = Field(default="", max_length=4000)
 
 
+class InvestigationEventIn(BaseModel):
+    """Backend observation/finding pushed by a machine principal (#112).
+    Extra fields pass through to InvestigationEvent.data."""
+    event_id: str = Field(min_length=1, max_length=128)
+    kind: str = Field(min_length=1, max_length=64)
+    source: str = Field(default="observation", max_length=32)
+    device_id: str = Field(default="", max_length=64)
+    zone_id: str = Field(default="", max_length=64)
+    incident_id: str | None = Field(default=None, max_length=64)
+    summary: str = Field(default="", max_length=2000)
+    provenance: str = Field(default="LIVE", max_length=16)
+    observed_at: str = Field(default="", max_length=64)
+    data: dict = Field(default_factory=dict)
+
+
 class ProposalIn(BaseModel):
     incident_id: str = Field(min_length=1, max_length=64)
     action_type: str = Field(min_length=1, max_length=64)
@@ -353,6 +368,37 @@ def create_app(seed: bool = True) -> FastAPI:
                                if state.identity.authorize(
                                    uid, _A.READ_INCIDENT,
                                    r["incident_id"]).allowed]})
+
+    # ---------------- orchestrator (event-driven, #112) ----------------
+    def _require_agent(uid: str) -> None:
+        from identity.models import Role as _R
+        if not state.require_role(uid, _R.AGENT):
+            raise HTTPException(403, "orchestrator endpoints require "
+                                     "an agent machine principal")
+
+    @app.post("/internal/events", status_code=202)
+    def push_event(body: InvestigationEventIn, uid: str = Depends(actor)):
+        """Machine principals (gateway/backend) push observations and
+        findings; accepted events trigger an investigation on pump."""
+        _require_agent(uid)
+        from .orchestrator import InvestigationEvent
+        ev = InvestigationEvent.from_payload(body.model_dump())
+        status = state.orchestrator.enqueue(ev)
+        return _env({"status": status, "event_id": ev.event_id,
+                     "kind": ev.kind, "dedupe_key": list(ev.dedupe_key)})
+
+    @app.post("/internal/orchestrator/pump")
+    def pump_orchestrator(uid: str = Depends(actor)):
+        """Drain queued events into investigation runs (synchronous)."""
+        _require_agent(uid)
+        runs = state.orchestrator.pump()
+        return _env({"runs": runs, "count": len(runs),
+                     "stats": state.orchestrator.stats})
+
+    @app.get("/internal/orchestrator/status")
+    def orchestrator_status(uid: str = Depends(actor)):
+        _require_agent(uid)
+        return _env(state.orchestrator.status())
 
     # ---------------- containment proposals / approvals ----------------
     @app.post("/proposals", status_code=201)
