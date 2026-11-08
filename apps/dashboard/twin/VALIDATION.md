@@ -63,3 +63,9 @@ State and layout edits are local to the session/view and are not a durable incid
 **Performance notes:** twin prod bundle main chunk ~1.86 MB (576 KB gzip) — Three/AG Grid/CopilotKit lazy chunks; DPR capped 1.5; 407-cell occupancy merged to 11 wall prisms. Scenario runner completes all three flows in ~1 s on laptop.
 
 **Residual risk (honest):** CopilotKit/AG-UI transitive advisories remain upstream-blocked (see #128 table). Physical hardware paths (serial, monitor-mode, real switch) are code-complete but lab-untested — see #54/#55.
+
+### #118 follow-up — Playwright repair + Python audit + live smoke (2026-11-08)
+
+- **Playwright suite repaired:** three stale specs fixed — `DEMO MODE` assertion → DEMO/LIVE badge button (#98 UI change), legacy feed label em-dash → hyphen (`1a4df90` dash purge), `Reassign inspection` one-shot `isVisible()` → deterministic `waitFor`. `npm run test:ui` now **11/11 PASS** (was 8/11 on main).
+- **Python audit (`pip-audit`):** upgraded `starlette→1.10.0` (5 advisories cleared, FastAPI constraint satisfied, suite-verified), `anyio→4.16.0`, `pydantic-settings→2.16.2`, `certifi`, `idna`, `pytest→9` + `pytest-asyncio` (pytest 9 compat verified across all suites). Remaining hits (`flask`, `werkzeug`, `requests`, `urllib3`, `pip`, `setuptools`) are global-env packages, not project dependencies.
+- **Live smoke:** `e2e-foundation.ts` **8 PASS / 0 FAIL** on the running stack (SpacetimeDB+gateway+API); orchestrator `POST /internal/events` → `accepted`, duplicate → `duplicate`, `pump` → completed run (`provider_mode=fake`, `provenance=MOCK`). Live Nemotron remains credential-gated (`/healthz` confirms `mode=fake`).
